@@ -3,8 +3,8 @@
 body {
   font-family: Arial, sans-serif;
   margin: 0;
-  background-color: #121212;
-  color: #fff;
+  background-color: #f3f4f6; /* Light grey background */
+  color: #333; /* Dark grey text */
 }
 
 .app-container {
@@ -14,35 +14,37 @@ body {
 }
 
 .app-header {
-  background-color: #37003c;
-  color: #fff;
+  background-color: #4b2f5d; /* Lighter purple for a brighter look */
+  color: #ffffff;
   padding: 1rem;
   text-align: center;
-  border-bottom: 4px solid #c8102e;
+  border-bottom: 4px solid #d71920; /* Brighter Premier League red */
 }
 
 .app-header h1 {
   font-size: 2rem;
+  color: #ffffff;
 }
 
 .app-content {
   flex: 1;
   padding: 2rem;
   text-align: center;
-  background: #181818;
+  background: #ffffff; /* White background for content */
 }
 
 .app-content p {
   font-size: 1.2rem;
+  color: #4b2f5d; /* Same as header background for consistent theme */
 }
 
 .app-footer {
-  background-color: #37003c;
-  color: #fff;
+  background-color: #4b2f5d; /* Matching footer with header */
+  color: #ffffff;
   padding: 1rem;
   text-align: center;
   font-size: 0.9rem;
-  border-top: 4px solid #c8102e;
+  border-top: 4px solid #d71920; /* Consistent accent color */
 }
 
 .app-footer p {
