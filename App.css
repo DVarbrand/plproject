@@ -3,8 +3,8 @@
 body {
   font-family: Arial, sans-serif;
   margin: 0;
-  background-color: #f3f4f6; /* Light grey background */
-  color: #333; /* Dark grey text */
+  background-color: #f3f4f6;
+  color: #333;
 }
 
 .app-container {
@@ -14,11 +14,11 @@ body {
 }
 
 .app-header {
-  background-color: #4b2f5d; /* Lighter purple for a brighter look */
+  background-color: #4b2f5d;
   color: #ffffff;
   padding: 1rem;
   text-align: center;
-  border-bottom: 4px solid #d71920; /* Brighter Premier League red */
+  border-bottom: 4px solid #d71920;
 }
 
 .app-header h1 {
@@ -30,23 +30,51 @@ body {
   flex: 1;
   padding: 2rem;
   text-align: center;
-  background: #ffffff; /* White background for content */
-}
-
-.app-content p {
-  font-size: 1.2rem;
-  color: #4b2f5d; /* Same as header background for consistent theme */
+  background: #ffffff;
 }
 
 .app-footer {
-  background-color: #4b2f5d; /* Matching footer with header */
+  background-color: #4b2f5d;
   color: #ffffff;
   padding: 1rem;
   text-align: center;
   font-size: 0.9rem;
-  border-top: 4px solid #d71920; /* Consistent accent color */
+  border-top: 4px solid #d71920;
 }
 
-.app-footer p {
-  margin: 0;
+.standings-table {
+  width: 80%;
+  margin: 0 auto;
+  border-collapse: collapse;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.standings-table th,
+.standings-table td {
+  padding: 12px;
+  border: 1px solid #ddd;
+}
+
+.standings-table th {
+  background-color: #37003c;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.standings-table td {
+  background-color: #f3f4f6;
+}
+
+.standings-table tr:nth-child(even) td {
+  background-color: #ffffff;
+}
+
+.standings-table tr:hover td {
+  background-color: #d71920;
+  color: #ffffff;
+}
+
+.standings-table th:first-child,
+.standings-table td:first-child {
+  text-align: center;
 }
