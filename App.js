@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import './App.css';
+// App.js
 
 function App() {
-  const [standings, setStandings] = useState([]);
+  const [standings, setStandings] = React.useState([]);
 
   // Fetch data from the API on component mount
-  useEffect(() => {
+  React.useEffect(() => {
     fetch('https://fantasy.premierleague.com/api/leagues-classic/217776/standings/')
       .then(response => response.json())
       .then(data => {
@@ -52,4 +51,5 @@ function App() {
   );
 }
 
-export default App;
+// Render App component
+ReactDOM.render(<App />, document.getElementById("root"));
