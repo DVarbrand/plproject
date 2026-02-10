@@ -1,18 +1,26 @@
 // App.js
 
 const proxies = [
-  (url) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-  (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
+  {
+    url: (target) => 'https://api.allorigins.win/get?url=' + encodeURIComponent(target),
+    parse: (json) => JSON.parse(json.contents),
+  },
+  {
+    url: (target) => 'https://corsproxy.io/?' + encodeURIComponent(target),
+    parse: (json) => json,
+  },
 ];
 
 async function fetchWithProxy(url, proxyIndex = 0) {
   if (proxyIndex >= proxies.length) {
     throw new Error('All proxies failed');
   }
+  const proxy = proxies[proxyIndex];
   try {
-    const response = await fetch(proxies[proxyIndex](url));
+    const response = await fetch(proxy.url(url));
     if (!response.ok) throw new Error('Proxy returned ' + response.status);
-    return await response.json();
+    const json = await response.json();
+    return proxy.parse(json);
   } catch (err) {
     console.warn('Proxy ' + proxyIndex + ' failed:', err.message);
     return fetchWithProxy(url, proxyIndex + 1);
