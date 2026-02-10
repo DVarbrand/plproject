@@ -42,6 +42,45 @@ body {
   border-top: 4px solid #d71920;
 }
 
+.league-form {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.league-input {
+  padding: 10px 16px;
+  font-size: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  width: 200px;
+}
+
+.league-input:focus {
+  outline: none;
+  border-color: #37003c;
+}
+
+.league-button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #37003c;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.league-button:hover {
+  background-color: #4b2f5d;
+}
+
+.league-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .standings-table {
   width: 80%;
   margin: 0 auto;
