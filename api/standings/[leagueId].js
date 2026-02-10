@@ -18,9 +18,8 @@ module.exports = (req, res) => {
     let body = '';
     apiRes.on('data', (chunk) => { body += chunk; });
     apiRes.on('end', () => {
-      res.status(apiRes.statusCode)
-        .setHeader('Content-Type', 'application/json')
-        .send(body);
+      res.setHeader('Content-Type', 'application/json');
+      res.status(apiRes.statusCode).send(body);
     });
   }).on('error', (err) => {
     res.status(502).json({ error: err.message });
