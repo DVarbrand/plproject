@@ -7,7 +7,7 @@ function App() {
 
   // Fetch data from the API on component mount
   React.useEffect(() => {
-    const apiUrl = 'https://fantasy.premierleague.com/api/leagues-classic/217776/standings/';
+    const apiUrl = 'https://fantasy.premierleague.com/api/leagues-classic/12176/standings/';
     fetch('https://corsproxy.io/?' + encodeURIComponent(apiUrl))
       .then(response => {
         if (!response.ok) throw new Error('API request failed');
