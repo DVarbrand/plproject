@@ -1,32 +1,5 @@
 // App.js
 
-const proxies = [
-  {
-    url: (target) => 'https://api.allorigins.win/get?url=' + encodeURIComponent(target),
-    parse: (json) => JSON.parse(json.contents),
-  },
-  {
-    url: (target) => 'https://corsproxy.io/?' + encodeURIComponent(target),
-    parse: (json) => json,
-  },
-];
-
-async function fetchWithProxy(url, proxyIndex = 0) {
-  if (proxyIndex >= proxies.length) {
-    throw new Error('All proxies failed');
-  }
-  const proxy = proxies[proxyIndex];
-  try {
-    const response = await fetch(proxy.url(url));
-    if (!response.ok) throw new Error('Proxy returned ' + response.status);
-    const json = await response.json();
-    return proxy.parse(json);
-  } catch (err) {
-    console.warn('Proxy ' + proxyIndex + ' failed:', err.message);
-    return fetchWithProxy(url, proxyIndex + 1);
-  }
-}
-
 function App() {
   const [leagueId, setLeagueId] = React.useState('');
   const [standings, setStandings] = React.useState([]);
@@ -41,8 +14,11 @@ function App() {
     setError(null);
     setStandings([]);
 
-    const apiUrl = 'https://fantasy.premierleague.com/api/leagues-classic/' + leagueId.trim() + '/standings/';
-    fetchWithProxy(apiUrl)
+    fetch('/api/standings/' + leagueId.trim())
+      .then(response => {
+        if (!response.ok) throw new Error('API request failed with status ' + response.status);
+        return response.json();
+      })
       .then(data => {
         setStandings(data.standings.results);
         setLoading(false);
