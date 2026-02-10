@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/standings/:leagueId", "destination": "/api/standings/:leagueId" }
+  ]
+}
