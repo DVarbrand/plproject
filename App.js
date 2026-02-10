@@ -5,7 +5,7 @@ function App() {
 
   // Fetch data from the API on component mount
   React.useEffect(() => {
-    fetch('https://fantasy.premierleague.com/api/leagues-classic/217776/standings/')
+    fetch('https://fantasy.premierleague.com/api/leagues-classic/12176/standings/')
       .then(response => response.json())
       .then(data => {
         setStandings(data.standings.results); // Store standings in state
