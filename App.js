@@ -357,22 +357,23 @@ function App() {
     setError(null);
     setStandings([]);
 
-    // Fetch standings and bootstrap-static in parallel
-    Promise.all([
-      fetch('/api/standings/' + leagueId.trim()).then(function (r) {
+    fetch('/api/standings/' + leagueId.trim())
+      .then(function (r) {
         if (!r.ok) throw new Error('API request failed with status ' + r.status);
         return r.json();
-      }),
-      fplFetch('bootstrap-static'),
-    ])
-      .then(function (results) {
-        var data = results[0];
-        var bootstrap = results[1];
+      })
+      .then(function (data) {
         setStandings(data.standings.results);
-        var players = {};
-        bootstrap.elements.forEach(function (p) { players[p.id] = p.web_name; });
-        setPlayerNames(players);
         setLoading(false);
+
+        // Load player names in background (needed for stats, not for standings)
+        fplFetch('bootstrap-static')
+          .then(function (bootstrap) {
+            var players = {};
+            bootstrap.elements.forEach(function (p) { players[p.id] = p.web_name; });
+            setPlayerNames(players);
+          })
+          .catch(function (err) { console.warn('Bootstrap fetch failed:', err.message); });
       })
       .catch(function (err) {
         console.error('Error fetching data:', err);
