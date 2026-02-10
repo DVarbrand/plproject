@@ -8,11 +8,26 @@ function App() {
   // Fetch data from the API on component mount
   React.useEffect(() => {
     const apiUrl = 'https://fantasy.premierleague.com/api/leagues-classic/12176/standings/';
-    fetch('https://corsproxy.io/?' + encodeURIComponent(apiUrl))
-      .then(response => {
-        if (!response.ok) throw new Error('API request failed');
-        return response.json();
-      })
+    const proxies = [
+      (url) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+      (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
+    ];
+
+    async function fetchWithProxy(url, proxyIndex = 0) {
+      if (proxyIndex >= proxies.length) {
+        throw new Error('All proxies failed');
+      }
+      try {
+        const response = await fetch(proxies[proxyIndex](url));
+        if (!response.ok) throw new Error('Proxy returned ' + response.status);
+        return await response.json();
+      } catch (err) {
+        console.warn('Proxy ' + proxyIndex + ' failed:', err.message);
+        return fetchWithProxy(url, proxyIndex + 1);
+      }
+    }
+
+    fetchWithProxy(apiUrl)
       .then(data => {
         setStandings(data.standings.results);
         setLoading(false);
