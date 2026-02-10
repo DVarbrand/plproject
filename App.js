@@ -13,7 +13,12 @@ async function batchFetch(paths, concurrency, onProgress) {
   var results = [];
   for (var i = 0; i < paths.length; i += concurrency) {
     var batch = paths.slice(i, i + concurrency);
-    var batchResults = await Promise.all(batch.map(function (p) { return fplFetch(p); }));
+    var batchResults = await Promise.all(batch.map(function (p) {
+      return fplFetch(p).catch(function (err) {
+        console.warn('Fetch failed for ' + p + ':', err.message);
+        return null;
+      });
+    }));
     results = results.concat(batchResults);
     if (onProgress) onProgress(Math.min(results.length, paths.length), paths.length);
     if (i + concurrency < paths.length) {
@@ -38,10 +43,12 @@ function PointsChart(props) {
 
   React.useEffect(function () {
     if (!props.managers || !canvasRef.current) return;
+    var managersWithHistory = props.managers.filter(function (m) { return m.history.length > 0; });
+    if (managersWithHistory.length === 0) return;
     if (chartRef.current) chartRef.current.destroy();
 
-    var labels = props.managers[0].history.map(function (h) { return 'GW' + h.event; });
-    var datasets = props.managers.map(function (m, i) {
+    var labels = managersWithHistory[0].history.map(function (h) { return 'GW' + h.event; });
+    var datasets = managersWithHistory.map(function (m, i) {
       return {
         label: m.player_name,
         data: m.history.map(function (h) { return h.total_points; }),
@@ -139,11 +146,12 @@ function LeagueStats(props) {
       });
 
       var managerData = standings.map(function (s, i) {
-        var history = histories[i].current;
-        var chips = histories[i].chips;
-        var totalBenchPoints = history.reduce(function (sum, gw) { return sum + gw.points_on_bench; }, 0);
-        var totalHitsCost = history.reduce(function (sum, gw) { return sum + gw.event_transfers_cost; }, 0);
-        var totalTransfers = history.reduce(function (sum, gw) { return sum + gw.event_transfers; }, 0);
+        var h = histories[i];
+        var history = (h && h.current) ? h.current : [];
+        var chips = (h && h.chips) ? h.chips : [];
+        var totalBenchPoints = history.reduce(function (sum, gw) { return sum + (gw.points_on_bench || 0); }, 0);
+        var totalHitsCost = history.reduce(function (sum, gw) { return sum + (gw.event_transfers_cost || 0); }, 0);
+        var totalTransfers = history.reduce(function (sum, gw) { return sum + (gw.event_transfers || 0); }, 0);
         return {
           entry: s.entry,
           player_name: s.player_name,
@@ -174,11 +182,12 @@ function LeagueStats(props) {
     setCaptainProgress(0);
 
     try {
-      // Get completed events
-      var bootstrap = await fplFetch('bootstrap-static');
-      var completedEvents = bootstrap.events
-        .filter(function (e) { return e.finished; })
-        .map(function (e) { return e.id; });
+      // Determine completed GWs from manager history data
+      var completedEvents = managerData[0].history.map(function (h) { return h.event; });
+      if (completedEvents.length === 0) {
+        setCaptainLoading(false);
+        return;
+      }
 
       // Fetch live data for each completed GW
       var liveData = {};
@@ -187,6 +196,7 @@ function LeagueStats(props) {
         setCaptainProgress(Math.round((done / total) * 30));
       });
       completedEvents.forEach(function (gw, i) {
+        if (!liveResults[i] || !liveResults[i].elements) return;
         var gwData = {};
         liveResults[i].elements.forEach(function (el) {
           gwData[el.id] = el.stats.total_points;
