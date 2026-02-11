@@ -141,9 +141,14 @@ function LeagueStats(props) {
       var managerIds = standings.map(function (s) { return s.entry; });
       var paths = managerIds.map(function (id) { return 'entry/' + id + '/history'; });
 
-      var histories = await batchFetch(paths, 5, function (done, total) {
+      var histories = await batchFetch(paths, 3, function (done, total) {
         setStatsProgress(Math.round((done / total) * 100));
       });
+
+      var successCount = histories.filter(function (h) { return h !== null; }).length;
+      if (successCount === 0) {
+        throw new Error('Could not fetch any manager data. The FPL API may be temporarily unavailable.');
+      }
 
       var managerData = standings.map(function (s, i) {
         var h = histories[i];
