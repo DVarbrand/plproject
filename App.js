@@ -29,10 +29,10 @@ async function batchFetch(paths, concurrency, onProgress) {
 }
 
 var CHART_COLORS = [
-  '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4',
-  '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990',
-  '#dcbeff', '#9A6324', '#800000', '#aaffc3', '#808000',
-  '#000075', '#a9a9a9', '#e6beff', '#fffac8', '#ffd8b1',
+  '#00FF85', '#04F5FF', '#E90052', '#f58231', '#3D195B',
+  '#ff3a7f', '#bfef45', '#42d4f4', '#fabed4', '#469990',
+  '#dcbeff', '#9A6324', '#e6194b', '#aaffc3', '#808000',
+  '#4363d8', '#a9a9a9', '#e6beff', '#fffac8', '#ffd8b1',
 ];
 
 // --- Components ---
@@ -66,12 +66,12 @@ function PointsChart(props) {
       options: {
         responsive: true,
         plugins: {
-          title: { display: true, text: 'Points Trajectory', font: { size: 18 } },
-          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          title: { display: true, text: 'Points Trajectory', font: { size: 16, weight: 600 }, color: '#f0f0f0' },
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, color: '#999' } },
         },
         scales: {
-          y: { title: { display: true, text: 'Total Points' } },
-          x: { title: { display: true, text: 'Gameweek' } },
+          y: { title: { display: true, text: 'Total Points', color: '#999' }, ticks: { color: '#999' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+          x: { title: { display: true, text: 'Gameweek', color: '#999' }, ticks: { color: '#999' }, grid: { color: 'rgba(255,255,255,0.06)' } },
         },
       },
     });
@@ -80,6 +80,13 @@ function PointsChart(props) {
   }, [props.managers]);
 
   return <canvas ref={canvasRef}></canvas>;
+}
+
+function RankBadge(props) {
+  var rank = props.rank;
+  var cls = 'rank-badge';
+  if (rank <= 3) cls += ' rank-' + rank;
+  return <span className={cls}>{rank}</span>;
 }
 
 function StatsTable(props) {
@@ -91,16 +98,22 @@ function StatsTable(props) {
           <tr>
             <th>#</th>
             <th>Manager</th>
-            {props.columns.map(function (col) { return <th key={col.key}>{col.label}</th>; })}
+            {props.columns.map(function (col) {
+              var isText = col.key === 'mostCaptained' || col.key === 'entry_name';
+              return <th key={col.key} className={isText ? '' : 'col-num'}>{col.label}</th>;
+            })}
           </tr>
         </thead>
         <tbody>
           {props.data.map(function (row, i) {
             return (
               <tr key={row.entry}>
-                <td>{i + 1}</td>
+                <td><RankBadge rank={i + 1} /></td>
                 <td>{row.player_name}</td>
-                {props.columns.map(function (col) { return <td key={col.key}>{row[col.key]}</td>; })}
+                {props.columns.map(function (col) {
+                  var isText = col.key === 'mostCaptained' || col.key === 'entry_name';
+                  return <td key={col.key} className={isText ? '' : 'col-num'}>{row[col.key]}</td>;
+                })}
               </tr>
             );
           })}
@@ -321,9 +334,9 @@ function LeagueStats(props) {
 
   if (!managers && !statsLoading) {
     return (
-      <div className="stats-section">
+      <div className="stats-section" style={{ textAlign: 'center' }}>
         <button className="league-button stats-button" onClick={loadStats}>
-          Load League Stats
+          Load Detailed Stats
         </button>
       </div>
     );
@@ -332,7 +345,7 @@ function LeagueStats(props) {
   if (statsLoading) {
     return (
       <div className="stats-section">
-        <h2>Loading League Stats...</h2>
+        <h2>Loading League Stats</h2>
         <ProgressBar percent={statsProgress} />
       </div>
     );
@@ -370,7 +383,7 @@ function LeagueStats(props) {
 
       {captainLoading ? (
         <div className="stats-section">
-          <h2>Loading Captain Stats...</h2>
+          <h2>Loading Captain Stats</h2>
           <ProgressBar percent={captainProgress} />
         </div>
       ) : captainStats ? (
@@ -431,14 +444,15 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Premier League Fantasy Standings</h1>
+        <h1>FPL League Hub</h1>
+        <div className="subtitle">Fantasy Premier League Stats & Insights</div>
       </header>
       <main className="app-content">
         <form className="league-form" onSubmit={handleSubmit}>
           <input
             type="text"
             className="league-input"
-            placeholder="Enter league ID"
+            placeholder="Enter league ID..."
             value={leagueId}
             onChange={function (e) { setLeagueId(e.target.value); }}
           />
@@ -449,26 +463,26 @@ function App() {
         {error ? (
           <p className="error-message">{error}</p>
         ) : loading ? (
-          <p>Loading standings...</p>
+          <p className="loading-text">Loading standings...</p>
         ) : standings.length > 0 ? (
           <div>
             <table className="standings-table">
               <thead>
                 <tr>
-                  <th>Position</th>
-                  <th>Player</th>
-                  <th>Team</th>
-                  <th>Total Points</th>
+                  <th>#</th>
+                  <th>Manager</th>
+                  <th>Team Name</th>
+                  <th className="col-num">Points</th>
                 </tr>
               </thead>
               <tbody>
                 {standings.map(function (player, index) {
                   return (
                     <tr key={player.entry}>
-                      <td>{index + 1}</td>
+                      <td><RankBadge rank={index + 1} /></td>
                       <td>{player.player_name}</td>
                       <td>{player.entry_name}</td>
-                      <td>{player.total}</td>
+                      <td className="col-num"><span className="points-value">{player.total}</span></td>
                     </tr>
                   );
                 })}
@@ -476,10 +490,15 @@ function App() {
             </table>
             <LeagueStats standings={standings} playerNames={playerNames} />
           </div>
-        ) : null}
+        ) : (
+          <div className="empty-state">
+            <h2>Enter a league ID to get started</h2>
+            <p>Find your league ID from the FPL website under Leagues & Cups</p>
+          </div>
+        )}
       </main>
       <footer className="app-footer">
-        <p>© 2024 Premier League</p>
+        <p>FPL League Hub - Not affiliated with the Premier League</p>
       </footer>
     </div>
   );
