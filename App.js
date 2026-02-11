@@ -123,6 +123,7 @@ function LeagueStats(props) {
   var standings = props.standings;
   var playerNames = props.playerNames;
 
+  var [localPlayerNames, setLocalPlayerNames] = React.useState({});
   var [managers, setManagers] = React.useState(null);
   var [captainStats, setCaptainStats] = React.useState(null);
   var [statsLoading, setStatsLoading] = React.useState(false);
@@ -130,6 +131,9 @@ function LeagueStats(props) {
   var [statsProgress, setStatsProgress] = React.useState(0);
   var [captainProgress, setCaptainProgress] = React.useState(0);
   var [statsError, setStatsError] = React.useState(null);
+
+  // Merge prop player names with locally fetched ones
+  var resolvedPlayerNames = Object.keys(playerNames).length > 0 ? playerNames : localPlayerNames;
 
   async function loadStats() {
     setStatsLoading(true);
@@ -142,8 +146,23 @@ function LeagueStats(props) {
       var paths = managerIds.map(function (id) { return 'entry/' + id + '/history'; });
 
       var histories = await batchFetch(paths, 3, function (done, total) {
-        setStatsProgress(Math.round((done / total) * 100));
+        setStatsProgress(Math.round((done / total) * 80));
       });
+
+      // Retry failed fetches once
+      var retryPaths = [];
+      var retryIndices = [];
+      histories.forEach(function (h, i) {
+        if (h === null) { retryPaths.push(paths[i]); retryIndices.push(i); }
+      });
+      if (retryPaths.length > 0) {
+        await new Promise(function (r) { setTimeout(r, 1000); });
+        var retryResults = await batchFetch(retryPaths, 2);
+        retryIndices.forEach(function (origIdx, j) {
+          histories[origIdx] = retryResults[j];
+        });
+      }
+      setStatsProgress(100);
 
       var successCount = histories.filter(function (h) { return h !== null; }).length;
       if (successCount === 0) {
@@ -187,6 +206,18 @@ function LeagueStats(props) {
     setCaptainProgress(0);
 
     try {
+      // Fetch bootstrap-static for player names if not already available
+      if (Object.keys(playerNames).length === 0 && Object.keys(localPlayerNames).length === 0) {
+        try {
+          var bootstrap = await fplFetch('bootstrap-static');
+          var players = {};
+          bootstrap.elements.forEach(function (p) { players[p.id] = p.web_name; });
+          setLocalPlayerNames(players);
+        } catch (err) {
+          console.warn('Bootstrap fetch failed in captain stats:', err.message);
+        }
+      }
+
       // Determine completed GWs from manager history data
       var completedEvents = managerData[0].history.map(function (h) { return h.event; });
       if (completedEvents.length === 0) {
@@ -283,7 +314,7 @@ function LeagueStats(props) {
         player_name: m.player_name,
         totalCaptainPoints: cs.totalCaptainPoints,
         avgCaptainPoints: cs.gwCount > 0 ? (cs.totalCaptainPoints / cs.gwCount).toFixed(1) : '0',
-        mostCaptained: mostCaptained ? (playerNames[mostCaptained] || 'Unknown') + ' (' + maxCount + 'x)' : '-',
+        mostCaptained: mostCaptained ? (resolvedPlayerNames[mostCaptained] || 'Unknown') + ' (' + maxCount + 'x)' : '-',
       };
     }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
   }
