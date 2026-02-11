@@ -1,16 +1,11 @@
 const https = require('https');
 
 module.exports = (req, res) => {
-  // Try req.query.path first (Vercel catch-all), fall back to parsing req.url
-  const pathSegments = req.query.path;
-  let fplPath;
-  if (Array.isArray(pathSegments) && pathSegments.length > 0) {
-    fplPath = pathSegments.join('/');
-  } else if (typeof pathSegments === 'string' && pathSegments) {
-    fplPath = pathSegments;
-  } else {
-    // Fallback: extract path from URL
-    const match = req.url.match(/\/api\/fpl\/(.+?)(?:\?|$)/);
+  // Extract FPL path from query parameter (set by vercel.json rewrite)
+  // or parse from URL as fallback (local dev)
+  let fplPath = req.query.fplPath;
+  if (!fplPath) {
+    const match = req.url.match(/\/api\/fpl-proxy\/(.+?)(?:\?|$)/);
     fplPath = match ? match[1] : null;
   }
 

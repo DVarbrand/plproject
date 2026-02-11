@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/standings/:leagueId", "destination": "/api/standings/:leagueId" }
+    { "source": "/api/fpl/:fplPath*", "destination": "/api/fpl-proxy?fplPath=:fplPath*" }
   ]
 }
