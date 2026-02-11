@@ -9,21 +9,50 @@ function fplFetch(path) {
   });
 }
 
-async function batchFetch(paths, concurrency, onProgress) {
-  var results = [];
-  for (var i = 0; i < paths.length; i += concurrency) {
-    var batch = paths.slice(i, i + concurrency);
-    var batchResults = await Promise.all(batch.map(function (p) {
-      return fplFetch(p).catch(function (err) {
-        console.warn('Fetch failed for ' + p + ':', err.message);
-        return null;
+async function batchFetch(paths, concurrency, onProgress, maxRetries) {
+  var retries = maxRetries || 0;
+  var results = new Array(paths.length);
+  var remaining = paths.map(function (p, i) { return { path: p, index: i }; });
+
+  for (var attempt = 0; attempt <= retries; attempt++) {
+    var failed = [];
+    for (var i = 0; i < remaining.length; i += concurrency) {
+      var batch = remaining.slice(i, i + concurrency);
+      var batchResults = await Promise.all(batch.map(function (item) {
+        return fplFetch(item.path).then(function (data) {
+          return { index: item.index, data: data };
+        }).catch(function (err) {
+          console.warn('Fetch failed for ' + item.path + ':', err.message);
+          return { index: item.index, data: null, failed: true, path: item.path };
+        });
+      }));
+      batchResults.forEach(function (r) {
+        if (r.failed) {
+          failed.push({ path: r.path, index: r.index });
+        } else {
+          results[r.index] = r.data;
+        }
       });
-    }));
-    results = results.concat(batchResults);
-    if (onProgress) onProgress(Math.min(results.length, paths.length), paths.length);
-    if (i + concurrency < paths.length) {
-      await new Promise(function (r) { setTimeout(r, 200); });
+      if (onProgress) {
+        var doneCount = results.filter(function (r) { return r !== undefined; }).length;
+        onProgress(doneCount, paths.length);
+      }
+      if (i + concurrency < remaining.length) {
+        await new Promise(function (r) { setTimeout(r, 200); });
+      }
     }
+    if (failed.length === 0) break;
+    remaining = failed;
+    if (attempt < retries) {
+      var delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+      console.log('Retrying ' + failed.length + ' failed requests (attempt ' + (attempt + 2) + ')...');
+      await new Promise(function (r) { setTimeout(r, delay); });
+    }
+  }
+
+  // Fill any still-missing slots with null
+  for (var j = 0; j < results.length; j++) {
+    if (results[j] === undefined) results[j] = null;
   }
   return results;
 }
@@ -136,52 +165,62 @@ function LeagueStats(props) {
   var standings = props.standings;
   var playerNames = props.playerNames;
 
-  var [localPlayerNames, setLocalPlayerNames] = React.useState({});
-  var [managers, setManagers] = React.useState(null);
-  var [captainStats, setCaptainStats] = React.useState(null);
-  var [statsLoading, setStatsLoading] = React.useState(false);
-  var [captainLoading, setCaptainLoading] = React.useState(false);
-  var [statsProgress, setStatsProgress] = React.useState(0);
-  var [captainProgress, setCaptainProgress] = React.useState(0);
+  var [allData, setAllData] = React.useState(null);
+  var [loading, setLoading] = React.useState(false);
+  var [progress, setProgress] = React.useState(0);
+  var [progressLabel, setProgressLabel] = React.useState('');
   var [statsError, setStatsError] = React.useState(null);
 
-  // Merge prop player names with locally fetched ones
-  var resolvedPlayerNames = Object.keys(playerNames).length > 0 ? playerNames : localPlayerNames;
-
-  async function loadStats() {
-    setStatsLoading(true);
+  async function loadAllStats() {
+    setLoading(true);
     setStatsError(null);
-    setStatsProgress(0);
-    setCaptainStats(null);
+    setProgress(0);
+    setAllData(null);
 
     try {
       var managerIds = standings.map(function (s) { return s.entry; });
-      var paths = managerIds.map(function (id) { return 'entry/' + id + '/history'; });
 
-      var histories = await batchFetch(paths, 3, function (done, total) {
-        setStatsProgress(Math.round((done / total) * 80));
+      // Phase 1: Fetch player names + histories in parallel (0-40%)
+      setProgressLabel('Fetching manager histories...');
+      var historyPaths = managerIds.map(function (id) { return 'entry/' + id + '/history'; });
+
+      var bootstrapPromise = fplFetch('bootstrap-static').catch(function (err) {
+        console.warn('Bootstrap fetch failed:', err.message);
+        return null;
       });
 
-      // Retry failed fetches once
-      var retryPaths = [];
-      var retryIndices = [];
-      histories.forEach(function (h, i) {
-        if (h === null) { retryPaths.push(paths[i]); retryIndices.push(i); }
-      });
-      if (retryPaths.length > 0) {
-        await new Promise(function (r) { setTimeout(r, 1000); });
-        var retryResults = await batchFetch(retryPaths, 2);
-        retryIndices.forEach(function (origIdx, j) {
-          histories[origIdx] = retryResults[j];
-        });
+      var histories = await batchFetch(historyPaths, 3, function (done, total) {
+        setProgress(Math.round((done / total) * 40));
+      }, 3);
+
+      var bootstrapData = await bootstrapPromise;
+
+      // Build player names map
+      var resolvedNames = {};
+      if (Object.keys(playerNames).length > 0) {
+        resolvedNames = playerNames;
+      } else if (bootstrapData && bootstrapData.elements) {
+        bootstrapData.elements.forEach(function (p) { resolvedNames[p.id] = p.web_name; });
       }
-      setStatsProgress(100);
+
+      // If bootstrap failed, retry once more
+      if (Object.keys(resolvedNames).length === 0) {
+        try {
+          var retryBootstrap = await fplFetch('bootstrap-static');
+          if (retryBootstrap && retryBootstrap.elements) {
+            retryBootstrap.elements.forEach(function (p) { resolvedNames[p.id] = p.web_name; });
+          }
+        } catch (err) {
+          console.warn('Bootstrap retry also failed:', err.message);
+        }
+      }
 
       var successCount = histories.filter(function (h) { return h !== null; }).length;
       if (successCount === 0) {
         throw new Error('Could not fetch any manager data. The FPL API may be temporarily unavailable.');
       }
 
+      // Build manager data from histories
       var managerData = standings.map(function (s, i) {
         var h = histories[i];
         var history = (h && h.current) ? h.current : [];
@@ -202,151 +241,97 @@ function LeagueStats(props) {
         };
       });
 
-      setManagers(managerData);
-      setStatsLoading(false);
-
-      // Auto-load captain stats
-      loadCaptainStats(managerData);
-    } catch (err) {
-      console.error('Stats error:', err);
-      setStatsError('Failed to load league stats: ' + err.message);
-      setStatsLoading(false);
-    }
-  }
-
-  async function loadCaptainStats(managerData) {
-    setCaptainLoading(true);
-    setCaptainProgress(0);
-
-    try {
-      // Fetch bootstrap-static for player names if not already available
-      if (Object.keys(playerNames).length === 0 && Object.keys(localPlayerNames).length === 0) {
-        try {
-          var bootstrap = await fplFetch('bootstrap-static');
-          var players = {};
-          bootstrap.elements.forEach(function (p) { players[p.id] = p.web_name; });
-          setLocalPlayerNames(players);
-        } catch (err) {
-          console.warn('Bootstrap fetch failed in captain stats:', err.message);
-        }
-      }
-
-      // Determine completed GWs from manager history data
-      var completedEvents = managerData[0].history.map(function (h) { return h.event; });
-      if (completedEvents.length === 0) {
-        setCaptainLoading(false);
-        return;
-      }
-
-      // Fetch live data for each completed GW
-      var liveData = {};
-      var livePaths = completedEvents.map(function (gw) { return 'event/' + gw + '/live'; });
-      var liveResults = await batchFetch(livePaths, 5, function (done, total) {
-        setCaptainProgress(Math.round((done / total) * 30));
-      });
-      completedEvents.forEach(function (gw, i) {
-        if (!liveResults[i] || !liveResults[i].elements) return;
-        var gwData = {};
-        liveResults[i].elements.forEach(function (el) {
-          gwData[el.id] = el.stats.total_points;
-        });
-        liveData[gw] = gwData;
-      });
-
-      // Fetch picks for each manager for each completed GW
-      var managerIds = managerData.map(function (m) { return m.entry; });
-      var allPickPaths = [];
-      managerIds.forEach(function (id) {
-        completedEvents.forEach(function (gw) {
-          allPickPaths.push({ path: 'entry/' + id + '/event/' + gw + '/picks', managerId: id, gw: gw });
-        });
-      });
+      // Phase 2: Fetch live GW data (40-60%)
+      var firstWithHistory = managerData.find(function (m) { return m.history.length > 0; });
+      var completedEvents = firstWithHistory ? firstWithHistory.history.map(function (h) { return h.event; }) : [];
 
       var captainResults = {};
       managerIds.forEach(function (id) {
         captainResults[id] = { totalCaptainPoints: 0, captainChoices: {}, gwCount: 0 };
       });
 
-      // Batch fetch picks
-      for (var i = 0; i < allPickPaths.length; i += 5) {
-        var batch = allPickPaths.slice(i, i + 5);
-        var results = await Promise.all(batch.map(function (item) {
-          return fplFetch(item.path).then(function (data) {
-            return { data: data, managerId: item.managerId, gw: item.gw };
-          }).catch(function () { return null; });
-        }));
+      if (completedEvents.length > 0) {
+        setProgressLabel('Fetching gameweek live data...');
+        var livePaths = completedEvents.map(function (gw) { return 'event/' + gw + '/live'; });
+        var liveResults = await batchFetch(livePaths, 5, function (done, total) {
+          setProgress(40 + Math.round((done / total) * 20));
+        }, 3);
 
-        results.forEach(function (result) {
-          if (!result || !result.data || !result.data.picks) return;
-          var captain = result.data.picks.find(function (p) { return p.is_captain; });
-          if (captain && liveData[result.gw]) {
-            var points = (liveData[result.gw][captain.element] || 0) * captain.multiplier;
-            captainResults[result.managerId].totalCaptainPoints += points;
-            captainResults[result.managerId].gwCount++;
-            var playerId = captain.element;
-            if (!captainResults[result.managerId].captainChoices[playerId]) {
-              captainResults[result.managerId].captainChoices[playerId] = { count: 0, points: 0 };
-            }
-            captainResults[result.managerId].captainChoices[playerId].count++;
-            captainResults[result.managerId].captainChoices[playerId].points += points;
-          }
+        var liveData = {};
+        completedEvents.forEach(function (gw, i) {
+          if (!liveResults[i] || !liveResults[i].elements) return;
+          var gwData = {};
+          liveResults[i].elements.forEach(function (el) {
+            gwData[el.id] = el.stats.total_points;
+          });
+          liveData[gw] = gwData;
         });
 
-        setCaptainProgress(30 + Math.round(((i + batch.length) / allPickPaths.length) * 70));
-        if (i + 5 < allPickPaths.length) {
-          await new Promise(function (r) { setTimeout(r, 200); });
-        }
+        // Phase 3: Fetch all picks (60-100%)
+        setProgressLabel('Fetching captain picks...');
+        var allPickPaths = [];
+        var allPickMeta = [];
+        managerIds.forEach(function (id) {
+          completedEvents.forEach(function (gw) {
+            allPickPaths.push('entry/' + id + '/event/' + gw + '/picks');
+            allPickMeta.push({ managerId: id, gw: gw });
+          });
+        });
+
+        var pickResults = await batchFetch(allPickPaths, 5, function (done, total) {
+          setProgress(60 + Math.round((done / total) * 40));
+        }, 3);
+
+        pickResults.forEach(function (pickData, idx) {
+          if (!pickData || !pickData.picks) return;
+          var meta = allPickMeta[idx];
+          var captain = pickData.picks.find(function (p) { return p.is_captain; });
+          if (captain && liveData[meta.gw]) {
+            var points = (liveData[meta.gw][captain.element] || 0) * captain.multiplier;
+            captainResults[meta.managerId].totalCaptainPoints += points;
+            captainResults[meta.managerId].gwCount++;
+            var playerId = captain.element;
+            if (!captainResults[meta.managerId].captainChoices[playerId]) {
+              captainResults[meta.managerId].captainChoices[playerId] = { count: 0, points: 0 };
+            }
+            captainResults[meta.managerId].captainChoices[playerId].count++;
+            captainResults[meta.managerId].captainChoices[playerId].points += points;
+          }
+        });
       }
 
-      setCaptainStats(captainResults);
-      setCaptainLoading(false);
+      setProgress(100);
+      setProgressLabel('');
+
+      // Set ALL data at once - nothing renders until this point
+      setAllData({
+        managers: managerData,
+        captainStats: captainResults,
+        playerNames: resolvedNames,
+      });
+      setLoading(false);
     } catch (err) {
-      console.error('Captain stats error:', err);
-      setCaptainLoading(false);
+      console.error('Stats error:', err);
+      setStatsError('Failed to load league stats: ' + err.message);
+      setLoading(false);
     }
   }
 
-  // Prepare sorted data for tables
-  var benchSorted = managers ? managers.slice().sort(function (a, b) { return b.totalBenchPoints - a.totalBenchPoints; }) : [];
-  var hitsSorted = managers ? managers.slice().sort(function (a, b) { return b.totalHitsCost - a.totalHitsCost; }) : [];
-
-  var captainSorted = [];
-  if (captainStats && managers) {
-    captainSorted = managers.map(function (m) {
-      var cs = captainStats[m.entry];
-      var mostCaptained = null;
-      var maxCount = 0;
-      Object.keys(cs.captainChoices).forEach(function (pid) {
-        if (cs.captainChoices[pid].count > maxCount) {
-          maxCount = cs.captainChoices[pid].count;
-          mostCaptained = pid;
-        }
-      });
-      return {
-        entry: m.entry,
-        player_name: m.player_name,
-        totalCaptainPoints: cs.totalCaptainPoints,
-        avgCaptainPoints: cs.gwCount > 0 ? (cs.totalCaptainPoints / cs.gwCount).toFixed(1) : '0',
-        mostCaptained: mostCaptained ? (resolvedPlayerNames[mostCaptained] || 'Unknown') + ' (' + maxCount + 'x)' : '-',
-      };
-    }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
-  }
-
-  if (!managers && !statsLoading) {
+  if (!allData && !loading) {
     return (
       <div className="stats-section" style={{ textAlign: 'center' }}>
-        <button className="league-button stats-button" onClick={loadStats}>
+        <button className="league-button stats-button" onClick={loadAllStats}>
           Load Detailed Stats
         </button>
       </div>
     );
   }
 
-  if (statsLoading) {
+  if (loading) {
     return (
       <div className="stats-section">
         <h2>Loading League Stats</h2>
-        <ProgressBar percent={statsProgress} />
+        <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
       </div>
     );
   }
@@ -354,6 +339,33 @@ function LeagueStats(props) {
   if (statsError) {
     return <p className="error-message">{statsError}</p>;
   }
+
+  // All data is ready - compute derived tables
+  var managers = allData.managers;
+  var captainStats = allData.captainStats;
+  var names = allData.playerNames;
+
+  var benchSorted = managers.slice().sort(function (a, b) { return b.totalBenchPoints - a.totalBenchPoints; });
+  var hitsSorted = managers.slice().sort(function (a, b) { return b.totalHitsCost - a.totalHitsCost; });
+
+  var captainSorted = managers.map(function (m) {
+    var cs = captainStats[m.entry];
+    var mostCaptained = null;
+    var maxCount = 0;
+    Object.keys(cs.captainChoices).forEach(function (pid) {
+      if (cs.captainChoices[pid].count > maxCount) {
+        maxCount = cs.captainChoices[pid].count;
+        mostCaptained = pid;
+      }
+    });
+    return {
+      entry: m.entry,
+      player_name: m.player_name,
+      totalCaptainPoints: cs.totalCaptainPoints,
+      avgCaptainPoints: cs.gwCount > 0 ? (cs.totalCaptainPoints / cs.gwCount).toFixed(1) : '0',
+      mostCaptained: mostCaptained ? (names[mostCaptained] || 'Unknown') + ' (' + maxCount + 'x)' : '-',
+    };
+  }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
 
   return (
     <div className="stats-dashboard">
@@ -381,22 +393,15 @@ function LeagueStats(props) {
         />
       </div>
 
-      {captainLoading ? (
-        <div className="stats-section">
-          <h2>Loading Captain Stats</h2>
-          <ProgressBar percent={captainProgress} />
-        </div>
-      ) : captainStats ? (
-        <StatsTable
-          title="Captain Performance"
-          data={captainSorted}
-          columns={[
-            { key: 'totalCaptainPoints', label: 'Captain Points' },
-            { key: 'avgCaptainPoints', label: 'Avg/GW' },
-            { key: 'mostCaptained', label: 'Most Captained' },
-          ]}
-        />
-      ) : null}
+      <StatsTable
+        title="Captain Performance"
+        data={captainSorted}
+        columns={[
+          { key: 'totalCaptainPoints', label: 'Captain Points' },
+          { key: 'avgCaptainPoints', label: 'Avg/GW' },
+          { key: 'mostCaptained', label: 'Most Captained' },
+        ]}
+      />
     </div>
   );
 }
