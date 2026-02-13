@@ -198,7 +198,6 @@ function BenchTable(props) {
             <th>#</th>
             <th>Manager</th>
             <th className="col-num">Bench Pts</th>
-            <th className="col-num">Total Pts</th>
           </tr>
         </thead>
         <tbody>
@@ -217,11 +216,10 @@ function BenchTable(props) {
                   {hasDetails ? <span className={'bench-expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
                 </td>
                 <td className="col-num">{row.totalBenchPoints}</td>
-                <td className="col-num">{row.total}</td>
               </tr>,
               isExpanded && details.length > 0 ? (
                 <tr className="bench-detail-row">
-                  <td colSpan="4">
+                  <td colSpan="3">
                     <div className="bench-detail-list">
                       <span className="bench-detail-label">Worst left on bench:</span>
                       {details.map(function (d, j) {
