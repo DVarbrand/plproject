@@ -3,18 +3,35 @@
 // --- Utilities ---
 
 var fetchCache = {};
-var CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+var CACHE_TTL = 5 * 60 * 1000; // 5 minutes for live data
+var currentEvent = null; // set from bootstrap-static
+
+// Paths containing historical (completed) GW data can be cached permanently.
+// Only the current GW and global endpoints need short TTL.
+function isHistoricalPath(path) {
+  if (!currentEvent) return false;
+  // event/{gw}/live - historical if gw < current
+  var liveMatch = path.match(/^event\/(\d+)\/live$/);
+  if (liveMatch) return parseInt(liveMatch[1], 10) < currentEvent;
+  // entry/{id}/event/{gw}/picks - historical if gw < current
+  var picksMatch = path.match(/^entry\/\d+\/event\/(\d+)\/picks$/);
+  if (picksMatch) return parseInt(picksMatch[1], 10) < currentEvent;
+  return false;
+}
 
 function fplFetch(path) {
   var cached = fetchCache[path];
-  if (cached && Date.now() - cached.time < CACHE_TTL) {
-    return Promise.resolve(cached.data);
+  if (cached) {
+    // Historical data: cache forever. Live data: respect TTL.
+    if (cached.permanent || Date.now() - cached.time < CACHE_TTL) {
+      return Promise.resolve(cached.data);
+    }
   }
   return fetch('/api/fpl/' + path).then(function (r) {
     if (!r.ok) throw new Error('FPL API error: ' + r.status);
     return r.json();
   }).then(function (data) {
-    fetchCache[path] = { data: data, time: Date.now() };
+    fetchCache[path] = { data: data, time: Date.now(), permanent: isHistoricalPath(path) };
     return data;
   });
 }
@@ -264,6 +281,12 @@ function LeagueStats(props) {
       }, 3);
 
       var bootstrapData = await bootstrapPromise;
+
+      // Determine current gameweek for cache strategy
+      if (bootstrapData && bootstrapData.events) {
+        var currentGw = bootstrapData.events.find(function (e) { return e.is_current; });
+        if (currentGw) currentEvent = currentGw.id;
+      }
 
       // Build player names map
       var names = {};
@@ -528,12 +551,16 @@ function App() {
         setStandings(data.standings.results);
         setLoading(false);
 
-        // Load player names in background (needed for stats, not for standings)
+        // Load player names + current GW in background
         fplFetch('bootstrap-static')
           .then(function (bootstrap) {
             var players = {};
             bootstrap.elements.forEach(function (p) { players[p.id] = p.web_name; });
             setPlayerNames(players);
+            if (bootstrap.events) {
+              var cur = bootstrap.events.find(function (e) { return e.is_current; });
+              if (cur) currentEvent = cur.id;
+            }
           })
           .catch(function (err) { console.warn('Bootstrap fetch failed:', err.message); });
       })
