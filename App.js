@@ -2,10 +2,20 @@
 
 // --- Utilities ---
 
+var fetchCache = {};
+var CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 function fplFetch(path) {
+  var cached = fetchCache[path];
+  if (cached && Date.now() - cached.time < CACHE_TTL) {
+    return Promise.resolve(cached.data);
+  }
   return fetch('/api/fpl/' + path).then(function (r) {
     if (!r.ok) throw new Error('FPL API error: ' + r.status);
     return r.json();
+  }).then(function (data) {
+    fetchCache[path] = { data: data, time: Date.now() };
+    return data;
   });
 }
 
@@ -38,7 +48,7 @@ async function batchFetch(paths, concurrency, onProgress, maxRetries) {
         onProgress(doneCount, paths.length);
       }
       if (i + concurrency < remaining.length) {
-        await new Promise(function (r) { setTimeout(r, 200); });
+        await new Promise(function (r) { setTimeout(r, 50); });
       }
     }
     if (failed.length === 0) break;
@@ -171,7 +181,7 @@ function BenchTable(props) {
         </thead>
         <tbody>
           {data.map(function (row, i) {
-            var details = benchDetails[row.entry] || [];
+            var details = benchDetails ? (benchDetails[row.entry] || []) : [];
             return React.createElement(React.Fragment, { key: row.entry },
               <tr>
                 <td><RankBadge rank={i + 1} /></td>
@@ -218,22 +228,29 @@ function LeagueStats(props) {
   var standings = props.standings;
   var playerNames = props.playerNames;
 
-  var [allData, setAllData] = React.useState(null);
-  var [loading, setLoading] = React.useState(false);
+  // Phase 1: history-based data (chart, bench totals, hits)
+  var [historyData, setHistoryData] = React.useState(null);
+  // Phase 2: picks-based data (captain stats, bench details)
+  var [picksData, setPicksData] = React.useState(null);
+  var [resolvedNames, setResolvedNames] = React.useState({});
+
+  var [phase1Loading, setPhase1Loading] = React.useState(false);
+  var [phase2Loading, setPhase2Loading] = React.useState(false);
   var [progress, setProgress] = React.useState(0);
   var [progressLabel, setProgressLabel] = React.useState('');
   var [statsError, setStatsError] = React.useState(null);
 
   async function loadAllStats() {
-    setLoading(true);
+    setPhase1Loading(true);
     setStatsError(null);
     setProgress(0);
-    setAllData(null);
+    setHistoryData(null);
+    setPicksData(null);
 
     try {
       var managerIds = standings.map(function (s) { return s.entry; });
 
-      // Phase 1: Fetch player names + histories in parallel (0-40%)
+      // Phase 1: Fetch player names + histories in parallel
       setProgressLabel('Fetching manager histories...');
       var historyPaths = managerIds.map(function (id) { return 'entry/' + id + '/history'; });
 
@@ -242,31 +259,30 @@ function LeagueStats(props) {
         return null;
       });
 
-      var histories = await batchFetch(historyPaths, 3, function (done, total) {
-        setProgress(Math.round((done / total) * 40));
+      var histories = await batchFetch(historyPaths, 5, function (done, total) {
+        setProgress(Math.round((done / total) * 30));
       }, 3);
 
       var bootstrapData = await bootstrapPromise;
 
       // Build player names map
-      var resolvedNames = {};
+      var names = {};
       if (Object.keys(playerNames).length > 0) {
-        resolvedNames = playerNames;
+        names = playerNames;
       } else if (bootstrapData && bootstrapData.elements) {
-        bootstrapData.elements.forEach(function (p) { resolvedNames[p.id] = p.web_name; });
+        bootstrapData.elements.forEach(function (p) { names[p.id] = p.web_name; });
       }
-
-      // If bootstrap failed, retry once more
-      if (Object.keys(resolvedNames).length === 0) {
+      if (Object.keys(names).length === 0) {
         try {
           var retryBootstrap = await fplFetch('bootstrap-static');
           if (retryBootstrap && retryBootstrap.elements) {
-            retryBootstrap.elements.forEach(function (p) { resolvedNames[p.id] = p.web_name; });
+            retryBootstrap.elements.forEach(function (p) { names[p.id] = p.web_name; });
           }
         } catch (err) {
           console.warn('Bootstrap retry also failed:', err.message);
         }
       }
+      setResolvedNames(names);
 
       var successCount = histories.filter(function (h) { return h !== null; }).length;
       if (successCount === 0) {
@@ -294,7 +310,12 @@ function LeagueStats(props) {
         };
       });
 
-      // Phase 2: Fetch live GW data (40-60%)
+      // Phase 1 done - render chart + bench totals + hits immediately
+      setHistoryData({ managers: managerData });
+      setPhase1Loading(false);
+
+      // Phase 2: Fetch live GW data + picks in background
+      setPhase2Loading(true);
       var firstWithHistory = managerData.find(function (m) { return m.history.length > 0; });
       var completedEvents = firstWithHistory ? firstWithHistory.history.map(function (h) { return h.event; }) : [];
 
@@ -306,10 +327,10 @@ function LeagueStats(props) {
       });
 
       if (completedEvents.length > 0) {
-        setProgressLabel('Fetching gameweek live data...');
+        setProgressLabel('Fetching gameweek data...');
         var livePaths = completedEvents.map(function (gw) { return 'event/' + gw + '/live'; });
-        var liveResults = await batchFetch(livePaths, 5, function (done, total) {
-          setProgress(40 + Math.round((done / total) * 20));
+        var liveResults = await batchFetch(livePaths, 10, function (done, total) {
+          setProgress(30 + Math.round((done / total) * 20));
         }, 3);
 
         var liveData = {};
@@ -322,7 +343,6 @@ function LeagueStats(props) {
           liveData[gw] = gwData;
         });
 
-        // Phase 3: Fetch all picks (60-100%)
         setProgressLabel('Fetching picks data...');
         var allPickPaths = [];
         var allPickMeta = [];
@@ -333,15 +353,14 @@ function LeagueStats(props) {
           });
         });
 
-        var pickResults = await batchFetch(allPickPaths, 5, function (done, total) {
-          setProgress(60 + Math.round((done / total) * 40));
+        var pickResults = await batchFetch(allPickPaths, 10, function (done, total) {
+          setProgress(50 + Math.round((done / total) * 50));
         }, 3);
 
         pickResults.forEach(function (pickData, idx) {
           if (!pickData || !pickData.picks) return;
           var meta = allPickMeta[idx];
 
-          // Captain tracking
           var captain = pickData.picks.find(function (p) { return p.is_captain; });
           if (captain && liveData[meta.gw]) {
             var points = (liveData[meta.gw][captain.element] || 0) * captain.multiplier;
@@ -355,7 +374,6 @@ function LeagueStats(props) {
             captainResults[meta.managerId].captainChoices[playerId].points += points;
           }
 
-          // Bench tracking (positions 12-15 are bench)
           if (liveData[meta.gw]) {
             pickData.picks.forEach(function (pick) {
               if (pick.position >= 12) {
@@ -372,7 +390,6 @@ function LeagueStats(props) {
           }
         });
 
-        // Sort each manager's bench details by points desc, keep top 3
         managerIds.forEach(function (id) {
           benchDetails[id].sort(function (a, b) { return b.points - a.points; });
           benchDetails[id] = benchDetails[id].slice(0, 3);
@@ -381,23 +398,17 @@ function LeagueStats(props) {
 
       setProgress(100);
       setProgressLabel('');
-
-      // Set ALL data at once - nothing renders until this point
-      setAllData({
-        managers: managerData,
-        captainStats: captainResults,
-        benchDetails: benchDetails,
-        playerNames: resolvedNames,
-      });
-      setLoading(false);
+      setPicksData({ captainStats: captainResults, benchDetails: benchDetails });
+      setPhase2Loading(false);
     } catch (err) {
       console.error('Stats error:', err);
       setStatsError('Failed to load league stats: ' + err.message);
-      setLoading(false);
+      setPhase1Loading(false);
+      setPhase2Loading(false);
     }
   }
 
-  if (!allData && !loading) {
+  if (!historyData && !phase1Loading) {
     return (
       <div className="stats-section" style={{ textAlign: 'center' }}>
         <button className="league-button stats-button" onClick={loadAllStats}>
@@ -407,7 +418,7 @@ function LeagueStats(props) {
     );
   }
 
-  if (loading) {
+  if (phase1Loading) {
     return (
       <div className="stats-section">
         <h2>Loading League Stats</h2>
@@ -420,33 +431,35 @@ function LeagueStats(props) {
     return <p className="error-message">{statsError}</p>;
   }
 
-  // All data is ready - compute derived tables
-  var managers = allData.managers;
-  var captainStats = allData.captainStats;
-  var names = allData.playerNames;
-
-  var benchDetails = allData.benchDetails;
+  // Phase 1 data ready - show chart, bench totals, hits
+  var managers = historyData.managers;
   var benchSorted = managers.slice().sort(function (a, b) { return b.totalBenchPoints - a.totalBenchPoints; });
   var hitsSorted = managers.slice().sort(function (a, b) { return b.totalHitsCost - a.totalHitsCost; });
 
-  var captainSorted = managers.map(function (m) {
-    var cs = captainStats[m.entry];
-    var mostCaptained = null;
-    var maxCount = 0;
-    Object.keys(cs.captainChoices).forEach(function (pid) {
-      if (cs.captainChoices[pid].count > maxCount) {
-        maxCount = cs.captainChoices[pid].count;
-        mostCaptained = pid;
-      }
-    });
-    return {
-      entry: m.entry,
-      player_name: m.player_name,
-      totalCaptainPoints: cs.totalCaptainPoints,
-      avgCaptainPoints: cs.gwCount > 0 ? (cs.totalCaptainPoints / cs.gwCount).toFixed(1) : '0',
-      mostCaptained: mostCaptained ? (names[mostCaptained] || 'Unknown') + ' (' + maxCount + 'x)' : '-',
-    };
-  }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
+  // Phase 2 data - captain stats + bench details (may still be loading)
+  var captainSorted = null;
+  var benchDetails = null;
+  if (picksData) {
+    benchDetails = picksData.benchDetails;
+    captainSorted = managers.map(function (m) {
+      var cs = picksData.captainStats[m.entry];
+      var mostCaptained = null;
+      var maxCount = 0;
+      Object.keys(cs.captainChoices).forEach(function (pid) {
+        if (cs.captainChoices[pid].count > maxCount) {
+          maxCount = cs.captainChoices[pid].count;
+          mostCaptained = pid;
+        }
+      });
+      return {
+        entry: m.entry,
+        player_name: m.player_name,
+        totalCaptainPoints: cs.totalCaptainPoints,
+        avgCaptainPoints: cs.gwCount > 0 ? (cs.totalCaptainPoints / cs.gwCount).toFixed(1) : '0',
+        mostCaptained: mostCaptained ? (resolvedNames[mostCaptained] || 'Unknown') + ' (' + maxCount + 'x)' : '-',
+      };
+    }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
+  }
 
   return (
     <div className="stats-dashboard">
@@ -458,7 +471,7 @@ function LeagueStats(props) {
         <BenchTable
           data={benchSorted}
           benchDetails={benchDetails}
-          playerNames={names}
+          playerNames={resolvedNames}
         />
 
         <StatsTable
@@ -471,15 +484,22 @@ function LeagueStats(props) {
         />
       </div>
 
-      <StatsTable
-        title="Captain Performance"
-        data={captainSorted}
-        columns={[
-          { key: 'totalCaptainPoints', label: 'Captain Points' },
-          { key: 'avgCaptainPoints', label: 'Avg/GW' },
-          { key: 'mostCaptained', label: 'Most Captained' },
-        ]}
-      />
+      {phase2Loading ? (
+        <div className="stats-section">
+          <h2>Loading Captain & Bench Details</h2>
+          <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
+        </div>
+      ) : captainSorted ? (
+        <StatsTable
+          title="Captain Performance"
+          data={captainSorted}
+          columns={[
+            { key: 'totalCaptainPoints', label: 'Captain Points' },
+            { key: 'avgCaptainPoints', label: 'Avg/GW' },
+            { key: 'mostCaptained', label: 'Most Captained' },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }
