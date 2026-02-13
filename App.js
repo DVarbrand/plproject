@@ -183,6 +183,11 @@ function BenchTable(props) {
   var data = props.data;
   var benchDetails = props.benchDetails;
   var names = props.playerNames;
+  var [expandedEntry, setExpandedEntry] = React.useState(null);
+
+  function toggleRow(entry) {
+    setExpandedEntry(expandedEntry === entry ? null : entry);
+  }
 
   return (
     <div className="stats-section">
@@ -199,14 +204,22 @@ function BenchTable(props) {
         <tbody>
           {data.map(function (row, i) {
             var details = benchDetails ? (benchDetails[row.entry] || []) : [];
+            var isExpanded = expandedEntry === row.entry;
+            var hasDetails = details.length > 0;
             return React.createElement(React.Fragment, { key: row.entry },
-              <tr>
+              <tr
+                className={hasDetails ? 'bench-row-clickable' : ''}
+                onClick={hasDetails ? function () { toggleRow(row.entry); } : undefined}
+              >
                 <td><RankBadge rank={i + 1} /></td>
-                <td>{row.player_name}</td>
+                <td>
+                  {row.player_name}
+                  {hasDetails ? <span className={'bench-expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
+                </td>
                 <td className="col-num">{row.totalBenchPoints}</td>
                 <td className="col-num">{row.total}</td>
               </tr>,
-              details.length > 0 ? (
+              isExpanded && details.length > 0 ? (
                 <tr className="bench-detail-row">
                   <td colSpan="4">
                     <div className="bench-detail-list">
