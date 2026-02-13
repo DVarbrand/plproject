@@ -351,6 +351,28 @@ body {
   width: 100%;
 }
 
+/* === Bench Clickable Rows === */
+
+.bench-row-clickable {
+  cursor: pointer;
+}
+
+.bench-row-clickable:hover td {
+  background: rgba(61, 25, 91, 0.45) !important;
+}
+
+.bench-expand-icon {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.7rem;
+  color: var(--pl-grey-300);
+  transition: transform 0.2s ease;
+}
+
+.bench-expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
 /* === Bench Detail Rows === */
 
 .bench-detail-row td {
