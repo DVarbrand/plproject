@@ -152,6 +152,59 @@ function StatsTable(props) {
   );
 }
 
+function BenchTable(props) {
+  var data = props.data;
+  var benchDetails = props.benchDetails;
+  var names = props.playerNames;
+
+  return (
+    <div className="stats-section">
+      <h2>Bench Points Wasted</h2>
+      <table className="standings-table stats-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th className="col-num">Bench Pts</th>
+            <th className="col-num">Total Pts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(function (row, i) {
+            var details = benchDetails[row.entry] || [];
+            return React.createElement(React.Fragment, { key: row.entry },
+              <tr>
+                <td><RankBadge rank={i + 1} /></td>
+                <td>{row.player_name}</td>
+                <td className="col-num">{row.totalBenchPoints}</td>
+                <td className="col-num">{row.total}</td>
+              </tr>,
+              details.length > 0 ? (
+                <tr className="bench-detail-row">
+                  <td colSpan="4">
+                    <div className="bench-detail-list">
+                      <span className="bench-detail-label">Worst left on bench:</span>
+                      {details.map(function (d, j) {
+                        return (
+                          <span key={j} className="bench-detail-item">
+                            <span className="bench-detail-name">{names[d.element] || 'Unknown'}</span>
+                            <span className="bench-detail-pts">{d.points} pts</span>
+                            <span className="bench-detail-gw">GW{d.gw}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+                </tr>
+              ) : null
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ProgressBar(props) {
   return (
     <div className="progress-container">
@@ -246,8 +299,10 @@ function LeagueStats(props) {
       var completedEvents = firstWithHistory ? firstWithHistory.history.map(function (h) { return h.event; }) : [];
 
       var captainResults = {};
+      var benchDetails = {};
       managerIds.forEach(function (id) {
         captainResults[id] = { totalCaptainPoints: 0, captainChoices: {}, gwCount: 0 };
+        benchDetails[id] = [];
       });
 
       if (completedEvents.length > 0) {
@@ -268,7 +323,7 @@ function LeagueStats(props) {
         });
 
         // Phase 3: Fetch all picks (60-100%)
-        setProgressLabel('Fetching captain picks...');
+        setProgressLabel('Fetching picks data...');
         var allPickPaths = [];
         var allPickMeta = [];
         managerIds.forEach(function (id) {
@@ -285,6 +340,8 @@ function LeagueStats(props) {
         pickResults.forEach(function (pickData, idx) {
           if (!pickData || !pickData.picks) return;
           var meta = allPickMeta[idx];
+
+          // Captain tracking
           var captain = pickData.picks.find(function (p) { return p.is_captain; });
           if (captain && liveData[meta.gw]) {
             var points = (liveData[meta.gw][captain.element] || 0) * captain.multiplier;
@@ -297,6 +354,28 @@ function LeagueStats(props) {
             captainResults[meta.managerId].captainChoices[playerId].count++;
             captainResults[meta.managerId].captainChoices[playerId].points += points;
           }
+
+          // Bench tracking (positions 12-15 are bench)
+          if (liveData[meta.gw]) {
+            pickData.picks.forEach(function (pick) {
+              if (pick.position >= 12) {
+                var benchPts = liveData[meta.gw][pick.element] || 0;
+                if (benchPts > 0) {
+                  benchDetails[meta.managerId].push({
+                    element: pick.element,
+                    points: benchPts,
+                    gw: meta.gw,
+                  });
+                }
+              }
+            });
+          }
+        });
+
+        // Sort each manager's bench details by points desc, keep top 3
+        managerIds.forEach(function (id) {
+          benchDetails[id].sort(function (a, b) { return b.points - a.points; });
+          benchDetails[id] = benchDetails[id].slice(0, 3);
         });
       }
 
@@ -307,6 +386,7 @@ function LeagueStats(props) {
       setAllData({
         managers: managerData,
         captainStats: captainResults,
+        benchDetails: benchDetails,
         playerNames: resolvedNames,
       });
       setLoading(false);
@@ -345,6 +425,7 @@ function LeagueStats(props) {
   var captainStats = allData.captainStats;
   var names = allData.playerNames;
 
+  var benchDetails = allData.benchDetails;
   var benchSorted = managers.slice().sort(function (a, b) { return b.totalBenchPoints - a.totalBenchPoints; });
   var hitsSorted = managers.slice().sort(function (a, b) { return b.totalHitsCost - a.totalHitsCost; });
 
@@ -374,13 +455,10 @@ function LeagueStats(props) {
       </div>
 
       <div className="stats-grid">
-        <StatsTable
-          title="Bench Points Wasted"
+        <BenchTable
           data={benchSorted}
-          columns={[
-            { key: 'totalBenchPoints', label: 'Bench Points' },
-            { key: 'total', label: 'Total Points' },
-          ]}
+          benchDetails={benchDetails}
+          playerNames={names}
         />
 
         <StatsTable

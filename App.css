@@ -351,6 +351,59 @@ body {
   width: 100%;
 }
 
+/* === Bench Detail Rows === */
+
+.bench-detail-row td {
+  padding: 0 !important;
+  background: rgba(55, 0, 60, 0.2) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bench-detail-row:hover td {
+  background: rgba(55, 0, 60, 0.2) !important;
+}
+
+.bench-detail-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 8px 16px 10px;
+}
+
+.bench-detail-label {
+  font-size: 0.75rem;
+  color: var(--pl-grey-300);
+  font-weight: 500;
+  margin-right: 0.25rem;
+}
+
+.bench-detail-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 0.78rem;
+}
+
+.bench-detail-name {
+  color: var(--pl-grey-100);
+  font-weight: 600;
+}
+
+.bench-detail-pts {
+  color: var(--pl-magenta);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bench-detail-gw {
+  color: var(--pl-grey-300);
+  font-size: 0.7rem;
+}
+
 /* === Chart Container === */
 
 .chart-container {
