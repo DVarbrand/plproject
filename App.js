@@ -183,6 +183,7 @@ function BenchTable(props) {
   var data = props.data;
   var benchDetails = props.benchDetails;
   var names = props.playerNames;
+  var loading = props.loading;
   var [expandedEntry, setExpandedEntry] = React.useState(null);
 
   function toggleRow(entry) {
@@ -205,33 +206,40 @@ function BenchTable(props) {
             var details = benchDetails ? (benchDetails[row.entry] || []) : [];
             var isExpanded = expandedEntry === row.entry;
             var hasDetails = details.length > 0;
+            var isClickable = loading || hasDetails;
             return React.createElement(React.Fragment, { key: row.entry },
               <tr
-                className={hasDetails ? 'bench-row-clickable' : ''}
-                onClick={hasDetails ? function () { toggleRow(row.entry); } : undefined}
+                className={isClickable ? 'expandable-row' : ''}
+                onClick={isClickable ? function () { toggleRow(row.entry); } : undefined}
               >
                 <td><RankBadge rank={i + 1} /></td>
                 <td>
                   {row.player_name}
-                  {hasDetails ? <span className={'bench-expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
+                  {isClickable ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
                 </td>
                 <td className="col-num">{row.totalBenchPoints}</td>
               </tr>,
-              isExpanded && details.length > 0 ? (
+              isExpanded ? (
                 <tr className="bench-detail-row">
                   <td colSpan="3">
-                    <div className="bench-detail-list">
-                      <span className="bench-detail-label">Worst left on bench:</span>
-                      {details.map(function (d, j) {
-                        return (
-                          <span key={j} className="bench-detail-item">
-                            <span className="bench-detail-name">{names[d.element] || 'Unknown'}</span>
-                            <span className="bench-detail-pts">{d.points} pts</span>
-                            <span className="bench-detail-gw">GW{d.gw}</span>
-                          </span>
-                        );
-                      })}
-                    </div>
+                    {loading ? (
+                      <div className="detail-loading">Loading bench details...</div>
+                    ) : hasDetails ? (
+                      <div className="bench-detail-list">
+                        <span className="bench-detail-label">Worst left on bench:</span>
+                        {details.map(function (d, j) {
+                          return (
+                            <span key={j} className="bench-detail-item">
+                              <span className="bench-detail-name">{names[d.element] || 'Unknown'}</span>
+                              <span className="bench-detail-pts">{d.points} pts</span>
+                              <span className="bench-detail-gw">GW{d.gw}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="detail-loading" style={{ animation: 'none', color: '#999' }}>No bench waste details available</div>
+                    )}
                   </td>
                 </tr>
               ) : null
@@ -246,6 +254,7 @@ function BenchTable(props) {
 function CaptainTable(props) {
   var data = props.data;
   var names = props.playerNames;
+  var loading = props.loading;
   var [expandedEntry, setExpandedEntry] = React.useState(null);
 
   function toggleRow(entry) {
@@ -271,33 +280,42 @@ function CaptainTable(props) {
               return { name: names[pid] || 'Unknown', count: choices[pid].count, points: choices[pid].points };
             }).sort(function (a, b) { return b.count - a.count; });
             var hasDetails = choiceList.length > 0;
+            var isClickable = loading || hasDetails;
             return React.createElement(React.Fragment, { key: row.entry },
               <tr
-                className={hasDetails ? 'bench-row-clickable' : ''}
-                onClick={hasDetails ? function () { toggleRow(row.entry); } : undefined}
+                className={isClickable ? 'expandable-row' : ''}
+                onClick={isClickable ? function () { toggleRow(row.entry); } : undefined}
               >
                 <td><RankBadge rank={i + 1} /></td>
                 <td>
                   {row.player_name}
-                  {hasDetails ? <span className={'bench-expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
+                  {isClickable ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
                 </td>
-                <td className="col-num">{row.totalCaptainPoints}</td>
+                <td className="col-num">
+                  {row.totalCaptainPoints !== null ? row.totalCaptainPoints : <span className="value-loading"></span>}
+                </td>
               </tr>,
-              isExpanded && hasDetails ? (
+              isExpanded ? (
                 <tr className="bench-detail-row">
                   <td colSpan="3">
-                    <div className="bench-detail-list">
-                      <span className="bench-detail-label">Captains picked:</span>
-                      {choiceList.map(function (c, j) {
-                        return (
-                          <span key={j} className="bench-detail-item">
-                            <span className="bench-detail-name">{c.name}</span>
-                            <span className="bench-detail-pts">{c.count}x</span>
-                            <span className="bench-detail-gw">{c.points} pts</span>
-                          </span>
-                        );
-                      })}
-                    </div>
+                    {loading ? (
+                      <div className="detail-loading">Loading captain details...</div>
+                    ) : hasDetails ? (
+                      <div className="bench-detail-list">
+                        <span className="bench-detail-label">Captains picked:</span>
+                        {choiceList.map(function (c, j) {
+                          return (
+                            <span key={j} className="bench-detail-item">
+                              <span className="bench-detail-name">{c.name}</span>
+                              <span className="bench-detail-pts">{c.count}x</span>
+                              <span className="bench-detail-gw">{c.points} pts</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="detail-loading" style={{ animation: 'none', color: '#999' }}>No captain details available</div>
+                    )}
                   </td>
                 </tr>
               ) : null
@@ -552,6 +570,11 @@ function LeagueStats(props) {
     }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
   }
 
+  // Placeholder captain data while phase 2 loads
+  var captainData = captainSorted || managers.map(function (m) {
+    return { entry: m.entry, player_name: m.player_name, totalCaptainPoints: null, captainChoices: {} };
+  });
+
   return (
     <div className="stats-dashboard">
       <div className="chart-container">
@@ -563,6 +586,7 @@ function LeagueStats(props) {
           data={benchSorted}
           benchDetails={benchDetails}
           playerNames={resolvedNames}
+          loading={phase2Loading}
         />
 
         <StatsTable
@@ -576,13 +600,12 @@ function LeagueStats(props) {
       </div>
 
       {phase2Loading ? (
-        <div className="stats-section">
-          <h2>Loading Captain & Bench Details</h2>
+        <div style={{ marginBottom: '0.5rem' }}>
           <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
         </div>
-      ) : captainSorted ? (
-        <CaptainTable data={captainSorted} playerNames={resolvedNames} />
       ) : null}
+
+      <CaptainTable data={captainData} playerNames={resolvedNames} loading={phase2Loading} />
     </div>
   );
 }
