@@ -610,22 +610,26 @@ function LeagueStats(props) {
   );
 }
 
+function getLeagueIdFromUrl() {
+  var params = new URLSearchParams(window.location.search);
+  return params.get('leagueId') || '';
+}
+
 function App() {
-  var [leagueId, setLeagueId] = React.useState('');
+  var [leagueId, setLeagueId] = React.useState(getLeagueIdFromUrl);
   var [standings, setStandings] = React.useState([]);
   var [playerNames, setPlayerNames] = React.useState({});
   var [error, setError] = React.useState(null);
   var [loading, setLoading] = React.useState(false);
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    if (!leagueId.trim()) return;
+  function fetchLeague(id) {
+    if (!id.trim()) return;
 
     setLoading(true);
     setError(null);
     setStandings([]);
 
-    fetch('/api/standings/' + leagueId.trim())
+    fetch('/api/standings/' + id.trim())
       .then(function (r) {
         if (!r.ok) throw new Error('API request failed with status ' + r.status);
         return r.json();
@@ -633,6 +637,11 @@ function App() {
       .then(function (data) {
         setStandings(data.standings.results);
         setLoading(false);
+
+        // Update URL without reload
+        var url = new URL(window.location);
+        url.searchParams.set('leagueId', id.trim());
+        window.history.pushState({}, '', url);
 
         // Load player names + current GW in background
         fplFetch('bootstrap-static')
@@ -653,6 +662,33 @@ function App() {
         setLoading(false);
       });
   }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    fetchLeague(leagueId);
+  }
+
+  // Auto-fetch if league ID is in URL on mount
+  React.useEffect(function () {
+    var urlId = getLeagueIdFromUrl();
+    if (urlId) fetchLeague(urlId);
+  }, []);
+
+  // Handle browser back/forward
+  React.useEffect(function () {
+    function onPopState() {
+      var urlId = getLeagueIdFromUrl();
+      setLeagueId(urlId);
+      if (urlId) {
+        fetchLeague(urlId);
+      } else {
+        setStandings([]);
+        setError(null);
+      }
+    }
+    window.addEventListener('popstate', onPopState);
+    return function () { window.removeEventListener('popstate', onPopState); };
+  }, []);
 
   return (
     <div className="app-container">
