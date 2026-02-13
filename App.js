@@ -243,6 +243,72 @@ function BenchTable(props) {
   );
 }
 
+function CaptainTable(props) {
+  var data = props.data;
+  var names = props.playerNames;
+  var [expandedEntry, setExpandedEntry] = React.useState(null);
+
+  function toggleRow(entry) {
+    setExpandedEntry(expandedEntry === entry ? null : entry);
+  }
+
+  return (
+    <div className="stats-section">
+      <h2>Captain Performance</h2>
+      <table className="standings-table stats-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th className="col-num">Captain Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(function (row, i) {
+            var isExpanded = expandedEntry === row.entry;
+            var choices = row.captainChoices || {};
+            var choiceList = Object.keys(choices).map(function (pid) {
+              return { name: names[pid] || 'Unknown', count: choices[pid].count, points: choices[pid].points };
+            }).sort(function (a, b) { return b.count - a.count; });
+            var hasDetails = choiceList.length > 0;
+            return React.createElement(React.Fragment, { key: row.entry },
+              <tr
+                className={hasDetails ? 'bench-row-clickable' : ''}
+                onClick={hasDetails ? function () { toggleRow(row.entry); } : undefined}
+              >
+                <td><RankBadge rank={i + 1} /></td>
+                <td>
+                  {row.player_name}
+                  {hasDetails ? <span className={'bench-expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
+                </td>
+                <td className="col-num">{row.totalCaptainPoints}</td>
+              </tr>,
+              isExpanded && hasDetails ? (
+                <tr className="bench-detail-row">
+                  <td colSpan="3">
+                    <div className="bench-detail-list">
+                      <span className="bench-detail-label">Captains picked:</span>
+                      {choiceList.map(function (c, j) {
+                        return (
+                          <span key={j} className="bench-detail-item">
+                            <span className="bench-detail-name">{c.name}</span>
+                            <span className="bench-detail-pts">{c.count}x</span>
+                            <span className="bench-detail-gw">{c.points} pts</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+                </tr>
+              ) : null
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ProgressBar(props) {
   return (
     <div className="progress-container">
@@ -477,20 +543,11 @@ function LeagueStats(props) {
     benchDetails = picksData.benchDetails;
     captainSorted = managers.map(function (m) {
       var cs = picksData.captainStats[m.entry];
-      var mostCaptained = null;
-      var maxCount = 0;
-      Object.keys(cs.captainChoices).forEach(function (pid) {
-        if (cs.captainChoices[pid].count > maxCount) {
-          maxCount = cs.captainChoices[pid].count;
-          mostCaptained = pid;
-        }
-      });
       return {
         entry: m.entry,
         player_name: m.player_name,
         totalCaptainPoints: cs.totalCaptainPoints,
-        avgCaptainPoints: cs.gwCount > 0 ? (cs.totalCaptainPoints / cs.gwCount).toFixed(1) : '0',
-        mostCaptained: mostCaptained ? (resolvedNames[mostCaptained] || 'Unknown') + ' (' + maxCount + 'x)' : '-',
+        captainChoices: cs.captainChoices,
       };
     }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
   }
@@ -524,15 +581,7 @@ function LeagueStats(props) {
           <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
         </div>
       ) : captainSorted ? (
-        <StatsTable
-          title="Captain Performance"
-          data={captainSorted}
-          columns={[
-            { key: 'totalCaptainPoints', label: 'Captain Points' },
-            { key: 'avgCaptainPoints', label: 'Avg/GW' },
-            { key: 'mostCaptained', label: 'Most Captained' },
-          ]}
-        />
+        <CaptainTable data={captainSorted} playerNames={resolvedNames} />
       ) : null}
     </div>
   );
