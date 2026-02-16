@@ -834,6 +834,27 @@ body {
   margin: 0;
 }
 
+/* === Load More === */
+
+.load-more-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--color-slate-100);
+}
+
+.load-more-btn {
+  font-size: 0.8rem;
+  padding: 8px 20px;
+}
+
+.load-more-count {
+  font-size: 0.75rem;
+  color: var(--color-slate-400);
+}
+
 /* === Table Scroll Wrapper === */
 
 .table-scroll-wrapper {

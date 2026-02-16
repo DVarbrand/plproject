@@ -26,8 +26,9 @@ function serveStatic(res, filePath) {
   });
 }
 
-function proxyFplApi(res, fplPath) {
-  const url = `https://fantasy.premierleague.com/api/${fplPath}/`;
+function proxyFplApi(res, fplPath, queryString) {
+  const qs = queryString ? '?' + queryString : '';
+  const url = `https://fantasy.premierleague.com/api/${fplPath}/${qs}`;
 
   https.get(url, {
     headers: {
@@ -57,10 +58,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Legacy standings endpoint
-  const standingsMatch = req.url.match(/^\/api\/standings\/(\d+)$/);
+  // Standings endpoint (with optional ?page=N)
+  const standingsMatch = req.url.match(/^\/api\/standings\/(\d+)(\?.*)?$/);
   if (standingsMatch) {
-    proxyFplApi(res, 'leagues-classic/' + standingsMatch[1] + '/standings');
+    const parsed = new URL(req.url, 'http://localhost');
+    const page = parsed.searchParams.get('page');
+    const qs = page ? 'page_standings=' + page : '';
+    proxyFplApi(res, 'leagues-classic/' + standingsMatch[1] + '/standings', qs);
     return;
   }
 

@@ -123,17 +123,20 @@ describe('server routing', function () {
   });
 
   it('matches /api/standings/:id routes', function () {
-    const pattern = /^\/api\/standings\/(\d+)$/;
+    const pattern = /^\/api\/standings\/(\d+)(\?.*)?$/;
     assert.ok(pattern.test('/api/standings/12176'));
     assert.ok(pattern.test('/api/standings/1'));
+    assert.ok(pattern.test('/api/standings/12176?page=2'));
     assert.ok(!pattern.test('/api/standings/abc'));
     assert.ok(!pattern.test('/api/standings/'));
     assert.ok(!pattern.test('/api/standings/12/extra'));
   });
 
   it('extracts correct league ID from standings URL', function () {
-    const match = '/api/standings/12176'.match(/^\/api\/standings\/(\d+)$/);
+    const match = '/api/standings/12176'.match(/^\/api\/standings\/(\d+)(\?.*)?$/);
     assert.equal(match[1], '12176');
+    const matchWithPage = '/api/standings/12176?page=3'.match(/^\/api\/standings\/(\d+)(\?.*)?$/);
+    assert.equal(matchWithPage[1], '12176');
   });
 
   it('extracts correct path from fpl URL', function () {
