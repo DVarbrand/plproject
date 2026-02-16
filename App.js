@@ -325,11 +325,11 @@ function PointsChart(props) {
         <div className="chart-toggle">
           <button
             className={'chart-toggle-btn' + (mode === 'relative' ? ' active' : '')}
-            onClick={function () { setMode('relative'); clearFocus(); }}
+            onClick={function () { setMode('relative'); }}
           >Points</button>
           <button
             className={'chart-toggle-btn' + (mode === 'rank' ? ' active' : '')}
-            onClick={function () { setMode('rank'); clearFocus(); }}
+            onClick={function () { setMode('rank'); }}
           >Rank</button>
         </div>
 
@@ -913,6 +913,7 @@ function getLeagueIdFromUrl() {
 function App() {
   var [leagueId, setLeagueId] = React.useState(getLeagueIdFromUrl);
   var [standings, setStandings] = React.useState([]);
+  var [leagueName, setLeagueName] = React.useState('');
   var [playerNames, setPlayerNames] = React.useState({});
   var [error, setError] = React.useState(null);
   var [loading, setLoading] = React.useState(false);
@@ -931,6 +932,7 @@ function App() {
       })
       .then(function (data) {
         setStandings(data.standings.results);
+        setLeagueName(data.league ? data.league.name : '');
         setLoading(false);
 
         // Update URL without reload
@@ -1004,23 +1006,24 @@ function App() {
           <button type="submit" className="league-button" disabled={loading}>
             {loading ? 'Loading...' : 'Fetch Standings'}
           </button>
+          {standings.length > 0 ? (
+            <button type="button" className="league-button share-button" onClick={function () {
+              navigator.clipboard.writeText(window.location.href).then(function () {
+                var btn = document.querySelector('.share-button');
+                var orig = btn.innerHTML;
+                btn.textContent = '\u2713 Copied!';
+                setTimeout(function () { btn.innerHTML = orig; }, 2000);
+              });
+            }}>&#x1F517; Share</button>
+          ) : null}
         </form>
-        {standings.length > 0 ? (
-          <button className="share-button" onClick={function () {
-            navigator.clipboard.writeText(window.location.href).then(function () {
-              var btn = document.querySelector('.share-button');
-              var orig = btn.textContent;
-              btn.textContent = '\u2713 Copied!';
-              setTimeout(function () { btn.textContent = orig; }, 2000);
-            });
-          }}>&#x1F517; Share...</button>
-        ) : null}
         {error ? (
           <p className="error-message">{error}</p>
         ) : loading ? (
           <p className="loading-text">Loading standings...</p>
         ) : standings.length > 0 ? (
           <div>
+            {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
             <div className="stat-card" style={{ marginBottom: 20 }}>
               <div className="card-header"><div className="card-indicator"></div> League Standings</div>
               <table className="standings-table">
