@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FPL League Hub - Design Options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #f0f0f0; color: #333; }
+
+  .design-picker { display: flex; gap: 12px; justify-content: center; padding: 20px; position: sticky; top: 0; background: #222; z-index: 100; }
+  .design-picker button { padding: 10px 24px; font-family: inherit; font-weight: 600; font-size: 0.9rem; border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+  .design-picker button.active { transform: scale(1.05); }
+  .design-picker .btn-a { background: #f0edff; color: #37003c; }
+  .design-picker .btn-a.active { border-color: #6c3baa; }
+  .design-picker .btn-b { background: #eef4ff; color: #1e3a5f; }
+  .design-picker .btn-b.active { border-color: #3b82f6; }
+  .design-picker .btn-c { background: #fef9f3; color: #4a3728; }
+  .design-picker .btn-c.active { border-color: #e67e22; }
+
+  .design-section { display: none; }
+  .design-section.visible { display: block; }
+
+  /* ============================================ */
+  /* OPTION A: Light with PL-inspired purple      */
+  /* ============================================ */
+  .option-a { background: #f7f5fa; min-height: 100vh; padding-bottom: 40px; }
+  .option-a .header { background: #fff; border-bottom: 1px solid #e8e4f0; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  .option-a .header .logo { width: 36px; height: 36px; background: linear-gradient(135deg, #6c3baa, #37003c); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 14px; }
+  .option-a .header h1 { font-size: 1.15rem; font-weight: 700; color: #37003c; }
+  .option-a .header .subtitle { font-size: 0.75rem; color: #9b8ab0; font-weight: 500; margin-left: auto; }
+
+  .option-a .content { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+  .option-a .search-bar { display: flex; gap: 10px; margin-bottom: 24px; }
+  .option-a .search-bar input { flex: 1; max-width: 280px; padding: 10px 16px; border: 1.5px solid #ddd6e8; border-radius: 8px; font-size: 0.9rem; background: #fff; color: #333; font-family: inherit; }
+  .option-a .search-bar input:focus { outline: none; border-color: #6c3baa; box-shadow: 0 0 0 3px rgba(108,59,170,0.1); }
+  .option-a .search-bar button { padding: 10px 20px; background: #6c3baa; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+
+  .option-a .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .option-a .stat-card { background: #fff; border-radius: 12px; border: 1px solid #ece8f4; overflow: hidden; }
+  .option-a .stat-card .card-header { padding: 14px 18px 10px; font-size: 0.8rem; font-weight: 600; color: #6c3baa; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #f3f0fa; display: flex; align-items: center; gap: 8px; }
+  .option-a .stat-card .card-header .dot { width: 6px; height: 6px; border-radius: 50%; background: #6c3baa; }
+
+  .option-a table { width: 100%; border-collapse: collapse; }
+  .option-a th { text-align: left; padding: 10px 16px; font-size: 0.72rem; font-weight: 600; color: #9b8ab0; text-transform: uppercase; letter-spacing: 0.6px; }
+  .option-a td { padding: 10px 16px; font-size: 0.85rem; color: #333; border-top: 1px solid #f5f2fa; }
+  .option-a tr:hover td { background: #faf8ff; }
+  .option-a .rank { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #f3f0fa; color: #6c3baa; }
+  .option-a .rank-1 { background: #6c3baa; color: #fff; }
+  .option-a .rank-2 { background: #8b5cd4; color: #fff; }
+  .option-a .rank-3 { background: #a87de0; color: #fff; }
+  .option-a .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .option-a .points { color: #6c3baa; font-weight: 700; }
+  .option-a .expand-row { cursor: pointer; }
+  .option-a .expand-row td:first-child { border-left: 3px solid #6c3baa; }
+  .option-a .expand-icon { color: #6c3baa; font-size: 0.6rem; margin-left: 6px; opacity: 0.6; }
+
+  .option-a .chart-card { background: #fff; border-radius: 12px; border: 1px solid #ece8f4; padding: 20px; margin-bottom: 20px; }
+  .option-a .chart-placeholder { height: 180px; background: linear-gradient(135deg, #f7f5fa 0%, #ece8f4 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9b8ab0; font-size: 0.85rem; }
+
+  .option-a .full-width { grid-column: 1 / -1; }
+
+  .option-a .footer { text-align: center; padding: 20px; font-size: 0.75rem; color: #9b8ab0; }
+
+  /* ============================================ */
+  /* OPTION B: Modern blue/indigo dashboard       */
+  /* ============================================ */
+  .option-b { background: #f8fafc; min-height: 100vh; padding-bottom: 40px; }
+  .option-b .header { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 14px 24px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .option-b .header .logo { width: 34px; height: 34px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 13px; }
+  .option-b .header h1 { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+  .option-b .header .badge { font-size: 0.65rem; background: #dbeafe; color: #1d4ed8; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
+  .option-b .header .subtitle { font-size: 0.75rem; color: #94a3b8; font-weight: 500; margin-left: auto; }
+
+  .option-b .content { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+  .option-b .search-bar { display: flex; gap: 10px; margin-bottom: 24px; align-items: center; }
+  .option-b .search-bar input { flex: 1; max-width: 260px; padding: 9px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; background: #fff; color: #1e293b; font-family: inherit; }
+  .option-b .search-bar input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+  .option-b .search-bar button { padding: 9px 18px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+  .option-b .search-bar .hint { font-size: 0.75rem; color: #94a3b8; }
+
+  .option-b .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .option-b .summary-item { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; padding: 14px 16px; }
+  .option-b .summary-label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.4px; margin-bottom: 4px; }
+  .option-b .summary-value { font-size: 1.3rem; font-weight: 700; color: #1e293b; }
+  .option-b .summary-value.blue { color: #3b82f6; }
+  .option-b .summary-value.green { color: #10b981; }
+  .option-b .summary-value.orange { color: #f59e0b; }
+  .option-b .summary-value.red { color: #ef4444; }
+
+  .option-b .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .option-b .stat-card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; }
+  .option-b .stat-card .card-header { padding: 14px 18px 10px; font-size: 0.8rem; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+  .option-b .stat-card .card-header .indicator { width: 3px; height: 16px; border-radius: 2px; background: #3b82f6; }
+  .option-b .stat-card .card-header .indicator.green { background: #10b981; }
+  .option-b .stat-card .card-header .indicator.orange { background: #f59e0b; }
+
+  .option-b table { width: 100%; border-collapse: collapse; }
+  .option-b th { text-align: left; padding: 8px 16px; font-size: 0.7rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; background: #f8fafc; }
+  .option-b td { padding: 10px 16px; font-size: 0.85rem; color: #334155; border-top: 1px solid #f1f5f9; }
+  .option-b tr:hover td { background: #f8fafc; }
+  .option-b .rank { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; background: #f1f5f9; color: #64748b; }
+  .option-b .rank-1 { background: #fef3c7; color: #b45309; }
+  .option-b .rank-2 { background: #f1f5f9; color: #475569; }
+  .option-b .rank-3 { background: #fce7e7; color: #c0392b; }
+  .option-b .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .option-b .points { color: #3b82f6; font-weight: 700; }
+  .option-b .expand-row { cursor: pointer; }
+  .option-b .expand-row td:first-child { border-left: 3px solid #3b82f6; }
+  .option-b .expand-icon { color: #3b82f6; font-size: 0.6rem; margin-left: 6px; opacity: 0.5; }
+
+  .option-b .chart-card { background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; padding: 20px; margin-bottom: 20px; }
+  .option-b .chart-placeholder { height: 180px; background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.85rem; }
+
+  .option-b .full-width { grid-column: 1 / -1; }
+
+  .option-b .footer { text-align: center; padding: 20px; font-size: 0.75rem; color: #94a3b8; }
+
+  /* ============================================ */
+  /* OPTION C: Warm neutral with sport accents    */
+  /* ============================================ */
+  .option-c { background: #faf9f7; min-height: 100vh; padding-bottom: 40px; }
+  .option-c .header { background: #1a1a1a; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+  .option-c .header .logo { width: 34px; height: 34px; background: #10b981; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 13px; }
+  .option-c .header h1 { font-size: 1.1rem; font-weight: 700; color: #fff; }
+  .option-c .header .subtitle { font-size: 0.75rem; color: #737373; font-weight: 500; margin-left: auto; }
+
+  .option-c .content { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+  .option-c .search-bar { display: flex; gap: 10px; margin-bottom: 24px; }
+  .option-c .search-bar input { flex: 1; max-width: 280px; padding: 10px 16px; border: 1.5px solid #e5e2dc; border-radius: 8px; font-size: 0.9rem; background: #fff; color: #333; font-family: inherit; }
+  .option-c .search-bar input:focus { outline: none; border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+  .option-c .search-bar button { padding: 10px 20px; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+
+  .option-c .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .option-c .stat-card { background: #fff; border-radius: 12px; border: 1px solid #eae7e1; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .option-c .stat-card .card-header { padding: 14px 18px 10px; font-size: 0.78rem; font-weight: 600; color: #1a1a1a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+  .option-c .stat-card .card-header .tag { font-size: 0.65rem; background: #ecfdf5; color: #059669; padding: 2px 8px; border-radius: 4px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .option-c .stat-card .card-header .tag.orange { background: #fff7ed; color: #ea580c; }
+  .option-c .stat-card .card-header .tag.red { background: #fef2f2; color: #dc2626; }
+
+  .option-c table { width: 100%; border-collapse: collapse; }
+  .option-c th { text-align: left; padding: 10px 16px; font-size: 0.7rem; font-weight: 600; color: #a3a097; text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 2px solid #f0ede7; }
+  .option-c td { padding: 11px 16px; font-size: 0.85rem; color: #333; border-top: 1px solid #f5f3ef; }
+  .option-c tr:hover td { background: #faf8f5; }
+  .option-c .rank { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 0.72rem; font-weight: 700; background: #f0ede7; color: #666; }
+  .option-c .rank-1 { background: #10b981; color: #fff; }
+  .option-c .rank-2 { background: #f59e0b; color: #fff; }
+  .option-c .rank-3 { background: #ef4444; color: #fff; }
+  .option-c .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .option-c .points { color: #10b981; font-weight: 700; }
+  .option-c .expand-row { cursor: pointer; }
+  .option-c .expand-row td:first-child { border-left: 3px solid #10b981; }
+  .option-c .expand-icon { color: #10b981; font-size: 0.6rem; margin-left: 6px; opacity: 0.6; }
+
+  .option-c .chart-card { background: #fff; border-radius: 12px; border: 1px solid #eae7e1; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+  .option-c .chart-placeholder { height: 180px; background: linear-gradient(135deg, #faf9f7 0%, #f0ede7 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #a3a097; font-size: 0.85rem; }
+
+  .option-c .full-width { grid-column: 1 / -1; }
+
+  .option-c .footer { text-align: center; padding: 20px; font-size: 0.75rem; color: #a3a097; }
+
+  /* Shared helpers */
+  .th-right, .td-right { text-align: right !important; }
+</style>
+</head>
+<body>
+
+<div class="design-picker">
+  <button class="btn-a active" onclick="show('a')">A &mdash; Purple Light</button>
+  <button class="btn-b" onclick="show('b')">B &mdash; Blue Dashboard</button>
+  <button class="btn-c" onclick="show('c')">C &mdash; Dark Header + Warm</button>
+</div>
+
+<!-- ===================== OPTION A ===================== -->
+<div id="section-a" class="design-section visible">
+<div class="option-a">
+  <div class="header">
+    <div class="logo">FPL</div>
+    <div>
+      <h1>FPL League Hub</h1>
+    </div>
+    <div class="subtitle">Fantasy Premier League Stats &amp; Insights</div>
+  </div>
+  <div class="content">
+    <div class="search-bar">
+      <input type="text" placeholder="Enter league ID..." value="274735">
+      <button>Fetch Standings</button>
+    </div>
+
+    <!-- Standings -->
+    <div class="stat-card" style="margin-bottom:20px">
+      <div class="card-header"><div class="dot"></div> League Standings</div>
+      <table>
+        <thead><tr><th style="width:50px">#</th><th>Manager</th><th>Team Name</th><th class="th-right">Points</th></tr></thead>
+        <tbody>
+          <tr><td><span class="rank rank-1">1</span></td><td>John Smith</td><td>Smith's Strikers</td><td class="num points">1,847</td></tr>
+          <tr><td><span class="rank rank-2">2</span></td><td>Emma Wilson</td><td>Wilson's Wonders</td><td class="num points">1,802</td></tr>
+          <tr><td><span class="rank rank-3">3</span></td><td>David Chen</td><td>Chen FC</td><td class="num points">1,756</td></tr>
+          <tr><td><span class="rank">4</span></td><td>Sarah Jones</td><td>Jones United</td><td class="num points">1,721</td></tr>
+          <tr><td><span class="rank">5</span></td><td>Mike Brown</td><td>Brown's Ballers</td><td class="num points">1,698</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card">
+      <div class="chart-placeholder">Points Trajectory Chart</div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="card-header"><div class="dot"></div> Bench Points Wasted</div>
+        <table>
+          <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Bench Pts</th></tr></thead>
+          <tbody>
+            <tr class="expand-row"><td><span class="rank rank-1">1</span></td><td>Sarah Jones <span class="expand-icon">&#9662;</span></td><td class="num">187</td></tr>
+            <tr class="expand-row"><td><span class="rank rank-2">2</span></td><td>Mike Brown <span class="expand-icon">&#9662;</span></td><td class="num">164</td></tr>
+            <tr class="expand-row"><td><span class="rank rank-3">3</span></td><td>John Smith <span class="expand-icon">&#9662;</span></td><td class="num">142</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="stat-card">
+        <div class="card-header"><div class="dot"></div> Transfer Hits &amp; Activity</div>
+        <table>
+          <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Transfers</th><th class="th-right">Hits Cost</th></tr></thead>
+          <tbody>
+            <tr><td><span class="rank rank-1">1</span></td><td>Emma Wilson</td><td class="num">48</td><td class="num">-32</td></tr>
+            <tr><td><span class="rank rank-2">2</span></td><td>David Chen</td><td class="num">41</td><td class="num">-24</td></tr>
+            <tr><td><span class="rank rank-3">3</span></td><td>Mike Brown</td><td class="num">37</td><td class="num">-16</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Captain -->
+    <div class="stat-card full-width" style="margin-bottom:20px">
+      <div class="card-header"><div class="dot"></div> Captain Performance</div>
+      <table>
+        <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Captain Points</th></tr></thead>
+        <tbody>
+          <tr class="expand-row"><td><span class="rank rank-1">1</span></td><td>John Smith <span class="expand-icon">&#9662;</span></td><td class="num">412</td></tr>
+          <tr class="expand-row"><td><span class="rank rank-2">2</span></td><td>Emma Wilson <span class="expand-icon">&#9662;</span></td><td class="num">386</td></tr>
+          <tr class="expand-row"><td><span class="rank rank-3">3</span></td><td>David Chen <span class="expand-icon">&#9662;</span></td><td class="num">371</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">FPL League Hub &mdash; Not affiliated with the Premier League</div>
+  </div>
+</div>
+</div>
+
+<!-- ===================== OPTION B ===================== -->
+<div id="section-b" class="design-section">
+<div class="option-b">
+  <div class="header">
+    <div class="logo">FPL</div>
+    <div>
+      <h1>FPL League Hub</h1>
+    </div>
+    <span class="badge">2024/25</span>
+    <div class="subtitle">Stats &amp; Insights</div>
+  </div>
+  <div class="content">
+    <div class="search-bar">
+      <input type="text" placeholder="Enter league ID..." value="274735">
+      <button>Fetch Standings</button>
+      <span class="hint">Tip: Share this page URL to let others see your league</span>
+    </div>
+
+    <!-- Summary Row -->
+    <div class="summary-row">
+      <div class="summary-item"><div class="summary-label">Managers</div><div class="summary-value">12</div></div>
+      <div class="summary-item"><div class="summary-label">Avg Points</div><div class="summary-value blue">1,742</div></div>
+      <div class="summary-item"><div class="summary-label">Total Bench Wasted</div><div class="summary-value orange">1,847</div></div>
+      <div class="summary-item"><div class="summary-label">Total Hits Taken</div><div class="summary-value red">-284</div></div>
+    </div>
+
+    <!-- Standings -->
+    <div class="stat-card" style="margin-bottom:20px">
+      <div class="card-header"><div class="indicator"></div> League Standings</div>
+      <table>
+        <thead><tr><th style="width:50px">#</th><th>Manager</th><th>Team Name</th><th class="th-right">Points</th></tr></thead>
+        <tbody>
+          <tr><td><span class="rank rank-1">1</span></td><td>John Smith</td><td>Smith's Strikers</td><td class="num points">1,847</td></tr>
+          <tr><td><span class="rank rank-2">2</span></td><td>Emma Wilson</td><td>Wilson's Wonders</td><td class="num points">1,802</td></tr>
+          <tr><td><span class="rank rank-3">3</span></td><td>David Chen</td><td>Chen FC</td><td class="num points">1,756</td></tr>
+          <tr><td><span class="rank">4</span></td><td>Sarah Jones</td><td>Jones United</td><td class="num points">1,721</td></tr>
+          <tr><td><span class="rank">5</span></td><td>Mike Brown</td><td>Brown's Ballers</td><td class="num points">1,698</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card">
+      <div class="chart-placeholder">Points Trajectory Chart</div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="card-header"><div class="indicator orange"></div> Bench Points Wasted</div>
+        <table>
+          <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Bench Pts</th></tr></thead>
+          <tbody>
+            <tr class="expand-row"><td><span class="rank rank-1">1</span></td><td>Sarah Jones <span class="expand-icon">&#9662;</span></td><td class="num">187</td></tr>
+            <tr class="expand-row"><td><span class="rank rank-2">2</span></td><td>Mike Brown <span class="expand-icon">&#9662;</span></td><td class="num">164</td></tr>
+            <tr class="expand-row"><td><span class="rank rank-3">3</span></td><td>John Smith <span class="expand-icon">&#9662;</span></td><td class="num">142</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="stat-card">
+        <div class="card-header"><div class="indicator green"></div> Transfer Hits &amp; Activity</div>
+        <table>
+          <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Transfers</th><th class="th-right">Hits Cost</th></tr></thead>
+          <tbody>
+            <tr><td><span class="rank rank-1">1</span></td><td>Emma Wilson</td><td class="num">48</td><td class="num">-32</td></tr>
+            <tr><td><span class="rank rank-2">2</span></td><td>David Chen</td><td class="num">41</td><td class="num">-24</td></tr>
+            <tr><td><span class="rank rank-3">3</span></td><td>Mike Brown</td><td class="num">37</td><td class="num">-16</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Captain -->
+    <div class="stat-card full-width" style="margin-bottom:20px">
+      <div class="card-header"><div class="indicator"></div> Captain Performance</div>
+      <table>
+        <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Captain Points</th></tr></thead>
+        <tbody>
+          <tr class="expand-row"><td><span class="rank rank-1">1</span></td><td>John Smith <span class="expand-icon">&#9662;</span></td><td class="num">412</td></tr>
+          <tr class="expand-row"><td><span class="rank rank-2">2</span></td><td>Emma Wilson <span class="expand-icon">&#9662;</span></td><td class="num">386</td></tr>
+          <tr class="expand-row"><td><span class="rank rank-3">3</span></td><td>David Chen <span class="expand-icon">&#9662;</span></td><td class="num">371</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">FPL League Hub &mdash; Not affiliated with the Premier League</div>
+  </div>
+</div>
+</div>
+
+<!-- ===================== OPTION C ===================== -->
+<div id="section-c" class="design-section">
+<div class="option-c">
+  <div class="header">
+    <div class="logo">FPL</div>
+    <div>
+      <h1>FPL League Hub</h1>
+    </div>
+    <div class="subtitle">Fantasy Premier League Stats &amp; Insights</div>
+  </div>
+  <div class="content">
+    <div class="search-bar">
+      <input type="text" placeholder="Enter league ID..." value="274735">
+      <button>Fetch Standings</button>
+    </div>
+
+    <!-- Standings -->
+    <div class="stat-card" style="margin-bottom:20px">
+      <div class="card-header">League Standings</div>
+      <table>
+        <thead><tr><th style="width:50px">#</th><th>Manager</th><th>Team Name</th><th class="th-right">Points</th></tr></thead>
+        <tbody>
+          <tr><td><span class="rank rank-1">1</span></td><td>John Smith</td><td>Smith's Strikers</td><td class="num points">1,847</td></tr>
+          <tr><td><span class="rank rank-2">2</span></td><td>Emma Wilson</td><td>Wilson's Wonders</td><td class="num points">1,802</td></tr>
+          <tr><td><span class="rank rank-3">3</span></td><td>David Chen</td><td>Chen FC</td><td class="num points">1,756</td></tr>
+          <tr><td><span class="rank">4</span></td><td>Sarah Jones</td><td>Jones United</td><td class="num points">1,721</td></tr>
+          <tr><td><span class="rank">5</span></td><td>Mike Brown</td><td>Brown's Ballers</td><td class="num points">1,698</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card">
+      <div class="chart-placeholder">Points Trajectory Chart</div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="card-header">Bench Points Wasted <span class="tag orange">Ranked</span></div>
+        <table>
+          <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Bench Pts</th></tr></thead>
+          <tbody>
+            <tr class="expand-row"><td><span class="rank rank-1">1</span></td><td>Sarah Jones <span class="expand-icon">&#9662;</span></td><td class="num">187</td></tr>
+            <tr class="expand-row"><td><span class="rank rank-2">2</span></td><td>Mike Brown <span class="expand-icon">&#9662;</span></td><td class="num">164</td></tr>
+            <tr class="expand-row"><td><span class="rank rank-3">3</span></td><td>John Smith <span class="expand-icon">&#9662;</span></td><td class="num">142</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="stat-card">
+        <div class="card-header">Transfer Hits &amp; Activity <span class="tag red">Cost</span></div>
+        <table>
+          <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Transfers</th><th class="th-right">Hits Cost</th></tr></thead>
+          <tbody>
+            <tr><td><span class="rank rank-1">1</span></td><td>Emma Wilson</td><td class="num">48</td><td class="num">-32</td></tr>
+            <tr><td><span class="rank rank-2">2</span></td><td>David Chen</td><td class="num">41</td><td class="num">-24</td></tr>
+            <tr><td><span class="rank rank-3">3</span></td><td>Mike Brown</td><td class="num">37</td><td class="num">-16</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Captain -->
+    <div class="stat-card full-width" style="margin-bottom:20px">
+      <div class="card-header">Captain Performance <span class="tag">Points</span></div>
+      <table>
+        <thead><tr><th style="width:40px">#</th><th>Manager</th><th class="th-right">Captain Points</th></tr></thead>
+        <tbody>
+          <tr class="expand-row"><td><span class="rank rank-1">1</span></td><td>John Smith <span class="expand-icon">&#9662;</span></td><td class="num">412</td></tr>
+          <tr class="expand-row"><td><span class="rank rank-2">2</span></td><td>Emma Wilson <span class="expand-icon">&#9662;</span></td><td class="num">386</td></tr>
+          <tr class="expand-row"><td><span class="rank rank-3">3</span></td><td>David Chen <span class="expand-icon">&#9662;</span></td><td class="num">371</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">FPL League Hub &mdash; Not affiliated with the Premier League</div>
+  </div>
+</div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.design-section').forEach(function(s) { s.classList.remove('visible'); });
+  document.getElementById('section-' + id).classList.add('visible');
+  document.querySelectorAll('.design-picker button').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelector('.btn-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>
