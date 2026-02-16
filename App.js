@@ -687,6 +687,173 @@ function LeagueStatsTable(props) {
   );
 }
 
+function CaptainAnalysisTable(props) {
+  var standings = props.standings;
+  var analysis = props.captainAnalysis;
+  var names = props.playerNames;
+
+  var [sortKey, setSortKey] = React.useState('correctOwnPct');
+  var [sortDir, setSortDir] = React.useState('desc');
+  var [expandedSet, setExpandedSet] = React.useState({});
+
+  function handleSort(key) {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'player_name' ? 'asc' : 'desc');
+    }
+  }
+
+  function toggleRow(entry) {
+    setExpandedSet(function (prev) {
+      var next = Object.assign({}, prev);
+      if (next[entry]) { delete next[entry]; } else { next[entry] = true; }
+      return next;
+    });
+  }
+
+  function sortIndicator(key) {
+    if (sortKey !== key) return <span className="sort-icon sort-inactive">&#8597;</span>;
+    return <span className="sort-icon sort-active">{sortDir === 'desc' ? '\u25BC' : '\u25B2'}</span>;
+  }
+
+  var data = standings.map(function (s) {
+    var ca = analysis[s.entry];
+    if (!ca || ca.totalGws === 0) {
+      return {
+        entry: s.entry,
+        player_name: s.player_name,
+        totalGws: 0,
+        correctOwn: 0,
+        correctOwnPct: 0,
+        correctOverall: 0,
+        correctOverallPct: 0,
+        gwDetails: [],
+      };
+    }
+    return {
+      entry: s.entry,
+      player_name: s.player_name,
+      totalGws: ca.totalGws,
+      correctOwn: ca.correctOwn,
+      correctOwnPct: Math.round((ca.correctOwn / ca.totalGws) * 100),
+      correctOverall: ca.correctOverall,
+      correctOverallPct: Math.round((ca.correctOverall / ca.totalGws) * 100),
+      gwDetails: ca.gwDetails,
+    };
+  });
+
+  var sorted = data.slice().sort(function (a, b) {
+    var aVal = a[sortKey];
+    var bVal = b[sortKey];
+    if (sortKey === 'player_name') {
+      aVal = (aVal || '').toLowerCase();
+      bVal = (bVal || '').toLowerCase();
+      return sortDir === 'asc' ? (aVal < bVal ? -1 : 1) : (aVal > bVal ? -1 : 1);
+    }
+    return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+
+  var colSpan = 6; // expand + # + Manager + Own Squad + Overall + GWs
+
+  return (
+    <div className="stat-card" style={{ marginBottom: 20 }}>
+      <div className="card-header"><div className="card-indicator green"></div> Captain Pick Analysis</div>
+      <div className="table-scroll-wrapper">
+      <table className="standings-table stats-table">
+        <thead>
+          <tr>
+            <th className="col-expand"></th>
+            <th>#</th>
+            <th className="sortable-th" onClick={function () { handleSort('player_name'); }}>
+              Manager {sortIndicator('player_name')}
+            </th>
+            <th className="col-num sortable-th" onClick={function () { handleSort('correctOwnPct'); }}>
+              Best in Squad {sortIndicator('correctOwnPct')}
+            </th>
+            <th className="col-num sortable-th" onClick={function () { handleSort('correctOverallPct'); }}>
+              Best Overall {sortIndicator('correctOverallPct')}
+            </th>
+            <th className="col-num sortable-th" onClick={function () { handleSort('totalGws'); }}>
+              GWs {sortIndicator('totalGws')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map(function (row, i) {
+            var isExpanded = !!expandedSet[row.entry];
+            var hasDetails = row.gwDetails.length > 0;
+
+            return React.createElement(React.Fragment, { key: row.entry },
+              <tr
+                className={hasDetails ? 'expandable-row' : ''}
+                onClick={hasDetails ? function () { toggleRow(row.entry); } : undefined}
+              >
+                <td className="col-expand">
+                  {hasDetails ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
+                </td>
+                <td><RankBadge rank={i + 1} /></td>
+                <td>{row.player_name}</td>
+                <td className="col-num">
+                  <span className={row.correctOwnPct >= 50 ? 'points-value' : ''}>{row.correctOwn}/{row.totalGws}</span>
+                  <span className="captain-pct"> ({row.correctOwnPct}%)</span>
+                </td>
+                <td className="col-num">
+                  <span>{row.correctOverall}/{row.totalGws}</span>
+                  <span className="captain-pct"> ({row.correctOverallPct}%)</span>
+                </td>
+                <td className="col-num">{row.totalGws}</td>
+              </tr>,
+              isExpanded ? (
+                <tr className="bench-detail-row">
+                  <td colSpan={colSpan}>
+                    <div className="captain-gw-details">
+                      <table className="captain-detail-table">
+                        <thead>
+                          <tr>
+                            <th>GW</th>
+                            <th>Your Captain</th>
+                            <th className="col-num">Pts</th>
+                            <th>Best in Squad</th>
+                            <th className="col-num">Pts</th>
+                            <th>GW Top Scorer</th>
+                            <th className="col-num">Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.gwDetails.slice().sort(function (a, b) { return b.gw - a.gw; }).map(function (gw) {
+                            return (
+                              <tr key={gw.gw}>
+                                <td>GW{gw.gw}</td>
+                                <td className={gw.isCorrectOwn ? 'captain-correct' : 'captain-wrong'}>
+                                  {names[gw.captainId] || 'Unknown'}
+                                </td>
+                                <td className="col-num">{gw.captainPoints}</td>
+                                <td>{names[gw.bestOwnId] || 'Unknown'}</td>
+                                <td className="col-num">{gw.bestOwnPoints}</td>
+                                <td className={gw.isCorrectOverall ? 'captain-correct' : ''}>
+                                  {names[gw.topScorerId] || 'Unknown'}
+                                </td>
+                                <td className="col-num">{gw.topScorerPoints}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              ) : null
+            );
+          })}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  );
+}
+
 function ProgressBar(props) {
   return (
     <div className="progress-container">
@@ -800,9 +967,11 @@ function LeagueStats(props) {
 
       var captainResults = {};
       var benchDetails = {};
+      var captainAnalysisData = {};
       managerIds.forEach(function (id) {
         captainResults[id] = { totalCaptainPoints: 0, captainChoices: {}, gwCount: 0 };
         benchDetails[id] = [];
+        captainAnalysisData[id] = { correctOwn: 0, correctOverall: 0, totalGws: 0, gwDetails: [] };
       });
 
       if (completedEvents.length > 0) {
@@ -820,6 +989,21 @@ function LeagueStats(props) {
             gwData[el.id] = el.stats.total_points;
           });
           liveData[gw] = gwData;
+        });
+
+        // Compute GW top scorer for captain analysis
+        var gwTopScorer = {};
+        completedEvents.forEach(function (gw) {
+          if (!liveData[gw]) return;
+          var bestId = null;
+          var bestPts = -1;
+          Object.keys(liveData[gw]).forEach(function (pid) {
+            if (liveData[gw][pid] > bestPts) {
+              bestPts = liveData[gw][pid];
+              bestId = parseInt(pid, 10);
+            }
+          });
+          gwTopScorer[gw] = { element: bestId, points: bestPts };
         });
 
         setProgressLabel('Fetching picks data...');
@@ -842,7 +1026,8 @@ function LeagueStats(props) {
 
           var captain = pickData.picks.find(function (p) { return p.is_captain; });
           if (captain && liveData[meta.gw]) {
-            var points = (liveData[meta.gw][captain.element] || 0) * captain.multiplier;
+            var captainRawPts = liveData[meta.gw][captain.element] || 0;
+            var points = captainRawPts * captain.multiplier;
             captainResults[meta.managerId].totalCaptainPoints += points;
             captainResults[meta.managerId].gwCount++;
             var playerId = captain.element;
@@ -851,6 +1036,39 @@ function LeagueStats(props) {
             }
             captainResults[meta.managerId].captainChoices[playerId].count++;
             captainResults[meta.managerId].captainChoices[playerId].points += points;
+
+            // Captain analysis: best in own squad (starting 11 only, positions 1-11)
+            var bestOwnId = captain.element;
+            var bestOwnPts = captainRawPts;
+            pickData.picks.forEach(function (pick) {
+              if (pick.position <= 11) {
+                var pts = liveData[meta.gw][pick.element] || 0;
+                if (pts > bestOwnPts) {
+                  bestOwnPts = pts;
+                  bestOwnId = pick.element;
+                }
+              }
+            });
+
+            var top = gwTopScorer[meta.gw] || { element: null, points: 0 };
+            var isCorrectOwn = captainRawPts >= bestOwnPts;
+            var isCorrectOverall = captainRawPts >= top.points;
+
+            var ca = captainAnalysisData[meta.managerId];
+            ca.totalGws++;
+            if (isCorrectOwn) ca.correctOwn++;
+            if (isCorrectOverall) ca.correctOverall++;
+            ca.gwDetails.push({
+              gw: meta.gw,
+              captainId: captain.element,
+              captainPoints: captainRawPts,
+              bestOwnId: bestOwnId,
+              bestOwnPoints: bestOwnPts,
+              topScorerId: top.element,
+              topScorerPoints: top.points,
+              isCorrectOwn: isCorrectOwn,
+              isCorrectOverall: isCorrectOverall,
+            });
           }
 
           if (liveData[meta.gw]) {
@@ -877,7 +1095,7 @@ function LeagueStats(props) {
 
       setProgress(100);
       setProgressLabel('');
-      setPicksData({ captainStats: captainResults, benchDetails: benchDetails });
+      setPicksData({ captainStats: captainResults, benchDetails: benchDetails, captainAnalysis: captainAnalysisData });
       setPhase2Loading(false);
     } catch (err) {
       console.error('Stats error:', err);
@@ -915,9 +1133,10 @@ function LeagueStats(props) {
   var totalBenchWasted = statsReady ? managers.reduce(function (s, m) { return s + m.totalBenchPoints; }, 0) : 0;
   var totalHitsCost = statsReady ? managers.reduce(function (s, m) { return s + m.totalHitsCost; }, 0) : 0;
 
-  // Phase 2 data - captain stats + bench details (may still be loading)
+  // Phase 2 data - captain stats + bench details + captain analysis (may still be loading)
   var captainStats = picksData ? picksData.captainStats : null;
   var benchDetails = picksData ? picksData.benchDetails : null;
+  var captainAnalysis = picksData ? picksData.captainAnalysis : null;
 
   return (
     <div className="stats-dashboard">
@@ -925,25 +1144,6 @@ function LeagueStats(props) {
 
       {phase1Loading ? (
         <div className="stats-section">
-          <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
-        </div>
-      ) : null}
-
-      <LeagueStatsTable
-        managers={managers}
-        captainStats={captainStats}
-        benchDetails={benchDetails}
-        playerNames={resolvedNames}
-        loading={phase2Loading}
-        statsReady={statsReady}
-        hasMore={props.hasMore}
-        onLoadMore={props.onLoadMore}
-        loadingMore={props.loadingMore}
-        totalShowing={props.totalShowing}
-      />
-
-      {phase2Loading ? (
-        <div style={{ marginBottom: '0.5rem' }}>
           <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
         </div>
       ) : null}
@@ -969,10 +1169,37 @@ function LeagueStats(props) {
         </div>
       ) : null}
 
+      <LeagueStatsTable
+        managers={managers}
+        captainStats={captainStats}
+        benchDetails={benchDetails}
+        playerNames={resolvedNames}
+        loading={phase2Loading}
+        statsReady={statsReady}
+        hasMore={props.hasMore}
+        onLoadMore={props.onLoadMore}
+        loadingMore={props.loadingMore}
+        totalShowing={props.totalShowing}
+      />
+
+      {phase2Loading ? (
+        <div style={{ marginBottom: '0.5rem' }}>
+          <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
+        </div>
+      ) : null}
+
       {statsReady ? (
         <div className="chart-container">
           <PointsChart managers={managers} hasMore={props.hasMore} />
         </div>
+      ) : null}
+
+      {captainAnalysis ? (
+        <CaptainAnalysisTable
+          standings={standings}
+          captainAnalysis={captainAnalysis}
+          playerNames={resolvedNames}
+        />
       ) : null}
     </div>
   );
