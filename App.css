@@ -536,6 +536,56 @@ body {
   gap: 4px;
 }
 
+/* === Captain Analysis === */
+
+.captain-pct {
+  color: var(--color-slate-400);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.captain-gw-details {
+  padding: 4px 8px 8px;
+  overflow-x: auto;
+}
+
+.captain-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.captain-detail-table th {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-slate-400);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-slate-200);
+}
+
+.captain-detail-table td {
+  padding: 5px 10px;
+  color: var(--color-slate-700);
+  border-bottom: 1px solid var(--color-slate-100);
+}
+
+.captain-detail-table .col-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.captain-correct {
+  color: var(--color-green-500);
+  font-weight: 600;
+}
+
+.captain-wrong {
+  color: var(--color-red-500);
+}
+
 /* === Loading Shimmer === */
 
 @keyframes shimmer {
