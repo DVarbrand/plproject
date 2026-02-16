@@ -85,10 +85,10 @@ async function batchFetch(paths, concurrency, onProgress, maxRetries) {
 }
 
 var CHART_COLORS = [
-  '#00FF85', '#04F5FF', '#E90052', '#f58231', '#3D195B',
-  '#ff3a7f', '#bfef45', '#42d4f4', '#fabed4', '#469990',
-  '#dcbeff', '#9A6324', '#e6194b', '#aaffc3', '#808000',
-  '#4363d8', '#a9a9a9', '#e6beff', '#fffac8', '#ffd8b1',
+  '#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6',
+  '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1',
+  '#14b8a6', '#e11d48', '#a855f7', '#0ea5e9', '#d946ef',
+  '#65a30d', '#dc2626', '#0891b2', '#7c3aed', '#c026d3',
 ];
 
 // --- Components ---
@@ -122,12 +122,12 @@ function PointsChart(props) {
       options: {
         responsive: true,
         plugins: {
-          title: { display: true, text: 'Points Trajectory', font: { size: 16, weight: 600 }, color: '#f0f0f0' },
-          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, color: '#999' } },
+          title: { display: true, text: 'Points Trajectory', font: { size: 14, weight: 600 }, color: '#1e293b' },
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' } },
         },
         scales: {
-          y: { title: { display: true, text: 'Total Points', color: '#999' }, ticks: { color: '#999' }, grid: { color: 'rgba(255,255,255,0.06)' } },
-          x: { title: { display: true, text: 'Gameweek', color: '#999' }, ticks: { color: '#999' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+          y: { title: { display: true, text: 'Total Points', color: '#64748b' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+          x: { title: { display: true, text: 'Gameweek', color: '#64748b' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(0,0,0,0.06)' } },
         },
       },
     });
@@ -554,6 +554,12 @@ function LeagueStats(props) {
   var benchSorted = managers.slice().sort(function (a, b) { return b.totalBenchPoints - a.totalBenchPoints; });
   var hitsSorted = managers.slice().sort(function (a, b) { return b.totalHitsCost - a.totalHitsCost; });
 
+  // Summary KPI values
+  var totalManagers = managers.length;
+  var avgPoints = managers.length > 0 ? Math.round(managers.reduce(function (s, m) { return s + m.total; }, 0) / managers.length) : 0;
+  var totalBenchWasted = managers.reduce(function (s, m) { return s + m.totalBenchPoints; }, 0);
+  var totalHitsCost = managers.reduce(function (s, m) { return s + m.totalHitsCost; }, 0);
+
   // Phase 2 data - captain stats + bench details (may still be loading)
   var captainSorted = null;
   var benchDetails = null;
@@ -577,6 +583,25 @@ function LeagueStats(props) {
 
   return (
     <div className="stats-dashboard">
+      <div className="summary-row">
+        <div className="summary-item">
+          <div className="summary-label">Managers</div>
+          <div className="summary-value">{totalManagers}</div>
+        </div>
+        <div className="summary-item">
+          <div className="summary-label">Avg Points</div>
+          <div className="summary-value blue">{avgPoints.toLocaleString()}</div>
+        </div>
+        <div className="summary-item">
+          <div className="summary-label">Total Bench Wasted</div>
+          <div className="summary-value orange">{totalBenchWasted.toLocaleString()}</div>
+        </div>
+        <div className="summary-item">
+          <div className="summary-label">Total Hits Taken</div>
+          <div className="summary-value red">{totalHitsCost > 0 ? '-' + totalHitsCost.toLocaleString() : '0'}</div>
+        </div>
+      </div>
+
       <div className="chart-container">
         <PointsChart managers={managers} />
       </div>
@@ -693,8 +718,10 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
+        <div className="header-logo">FPL</div>
         <h1>FPL League Hub</h1>
-        <div className="subtitle">Fantasy Premier League Stats & Insights</div>
+        <span className="header-badge">2024/25</span>
+        <div className="subtitle">Stats & Insights</div>
       </header>
       <main className="app-content">
         <form className="league-form" onSubmit={handleSubmit}>
@@ -708,6 +735,7 @@ function App() {
           <button type="submit" className="league-button" disabled={loading}>
             {loading ? 'Loading...' : 'Fetch Standings'}
           </button>
+          {standings.length > 0 ? <span className="url-hint">Share this page URL to let others see your league</span> : null}
         </form>
         {error ? (
           <p className="error-message">{error}</p>
@@ -715,28 +743,31 @@ function App() {
           <p className="loading-text">Loading standings...</p>
         ) : standings.length > 0 ? (
           <div>
-            <table className="standings-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Manager</th>
-                  <th>Team Name</th>
-                  <th className="col-num">Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map(function (player, index) {
-                  return (
-                    <tr key={player.entry}>
-                      <td><RankBadge rank={index + 1} /></td>
-                      <td>{player.player_name}</td>
-                      <td>{player.entry_name}</td>
-                      <td className="col-num"><span className="points-value">{player.total}</span></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="stat-card" style={{ marginBottom: 20 }}>
+              <div className="card-header"><div className="card-indicator"></div> League Standings</div>
+              <table className="standings-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Manager</th>
+                    <th>Team Name</th>
+                    <th className="col-num">Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {standings.map(function (player, index) {
+                    return (
+                      <tr key={player.entry}>
+                        <td><RankBadge rank={index + 1} /></td>
+                        <td>{player.player_name}</td>
+                        <td>{player.entry_name}</td>
+                        <td className="col-num"><span className="points-value">{player.total}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             <LeagueStats standings={standings} playerNames={playerNames} />
           </div>
         ) : (
