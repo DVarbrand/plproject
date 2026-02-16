@@ -99,8 +99,22 @@ function PointsChart(props) {
   var [mode, setMode] = React.useState('relative'); // 'relative' or 'rank'
   var [topN, setTopN] = React.useState(0); // 0 = all
   var [gwRange, setGwRange] = React.useState([1, 38]);
-  var [focusedIndex, setFocusedIndex] = React.useState(null);
+  var [focusedSet, setFocusedSet] = React.useState({});
   var [maxGw, setMaxGw] = React.useState(38);
+  var sliderRef = React.useRef(null);
+  var [dragging, setDragging] = React.useState(null); // 'min', 'max', or null
+
+  var hasFocus = Object.keys(focusedSet).length > 0;
+
+  function toggleFocus(idx) {
+    setFocusedSet(function (prev) {
+      var next = Object.assign({}, prev);
+      if (next[idx]) { delete next[idx]; } else { next[idx] = true; }
+      return next;
+    });
+  }
+
+  function clearFocus() { setFocusedSet({}); }
 
   var managersWithHistory = (props.managers || []).filter(function (m) { return m.history.length > 0; });
 
@@ -153,7 +167,7 @@ function PointsChart(props) {
         var data = gwIndices.map(function (gwIdx, j) {
           return Math.round(m.history[gwIdx].total_points - avgPerGw[j]);
         });
-        var isFocused = focusedIndex === null || focusedIndex === origIdx;
+        var isFocused = !hasFocus || focusedSet[origIdx];
         return {
           label: m.player_name,
           data: data,
@@ -170,9 +184,9 @@ function PointsChart(props) {
       }).filter(Boolean);
 
       // Apply focus opacity via borderColor alpha
-      if (focusedIndex !== null) {
+      if (hasFocus) {
         datasets.forEach(function (ds) {
-          if (ds._origIdx !== focusedIndex) {
+          if (!focusedSet[ds._origIdx]) {
             ds.borderColor = ds.borderColor + '25';
             ds.backgroundColor = ds.backgroundColor + '25';
           }
@@ -192,7 +206,7 @@ function PointsChart(props) {
               labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' },
               onClick: function (e, legendItem, legend) {
                 var idx = managersWithHistory.findIndex(function (m) { return m.player_name === legendItem.text; });
-                setFocusedIndex(function (prev) { return prev === idx ? null : idx; });
+                toggleFocus(idx);
               },
             },
             tooltip: {
@@ -228,7 +242,7 @@ function PointsChart(props) {
 
       var datasets = managersWithHistory.map(function (m, origIdx) {
         if (!visibleSet[m.entry]) return null;
-        var isFocused = focusedIndex === null || focusedIndex === origIdx;
+        var isFocused = !hasFocus || focusedSet[origIdx];
         return {
           label: m.player_name,
           data: rankData[m.entry],
@@ -242,9 +256,9 @@ function PointsChart(props) {
         };
       }).filter(Boolean);
 
-      if (focusedIndex !== null) {
+      if (hasFocus) {
         datasets.forEach(function (ds) {
-          if (ds._origIdx !== focusedIndex) {
+          if (!focusedSet[ds._origIdx]) {
             ds.borderColor = ds.borderColor + '25';
             ds.backgroundColor = ds.backgroundColor + '25';
           }
@@ -264,7 +278,7 @@ function PointsChart(props) {
               labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' },
               onClick: function (e, legendItem, legend) {
                 var idx = managersWithHistory.findIndex(function (m) { return m.player_name === legendItem.text; });
-                setFocusedIndex(function (prev) { return prev === idx ? null : idx; });
+                toggleFocus(idx);
               },
             },
             tooltip: {
@@ -295,7 +309,7 @@ function PointsChart(props) {
     }
 
     return function () { if (chartRef.current) chartRef.current.destroy(); };
-  }, [props.managers, mode, topN, gwRange, focusedIndex]);
+  }, [props.managers, mode, topN, gwRange, focusedSet]);
 
   if (managersWithHistory.length === 0) return null;
 
@@ -311,11 +325,11 @@ function PointsChart(props) {
         <div className="chart-toggle">
           <button
             className={'chart-toggle-btn' + (mode === 'relative' ? ' active' : '')}
-            onClick={function () { setMode('relative'); setFocusedIndex(null); }}
+            onClick={function () { setMode('relative'); clearFocus(); }}
           >Points</button>
           <button
             className={'chart-toggle-btn' + (mode === 'rank' ? ' active' : '')}
-            onClick={function () { setMode('rank'); setFocusedIndex(null); }}
+            onClick={function () { setMode('rank'); clearFocus(); }}
           >Rank</button>
         </div>
 
@@ -327,51 +341,116 @@ function PointsChart(props) {
                 <button
                   key={opt.value}
                   className={'chart-filter-btn' + (topN === opt.value ? ' active' : '')}
-                  onClick={function () { setTopN(opt.value); setFocusedIndex(null); }}
+                  onClick={function () { setTopN(opt.value); clearFocus(); }}
                 >{opt.label}</button>
               );
             })}
           </div>
 
-          <div className="chart-filter-group">
-            <span className="chart-filter-label">GW Range:</span>
-            <select
-              className="chart-select"
-              value={gwRange[0]}
-              onChange={function (e) {
-                var v = parseInt(e.target.value, 10);
-                setGwRange(function (prev) { return [v, Math.max(v, prev[1])]; });
-              }}
-            >
-              {Array.from({ length: maxGw }, function (_, i) { return i + 1; }).map(function (gw) {
-                return <option key={gw} value={gw}>GW{gw}</option>;
-              })}
-            </select>
-            <span className="chart-filter-sep">&ndash;</span>
-            <select
-              className="chart-select"
-              value={gwRange[1]}
-              onChange={function (e) {
-                var v = parseInt(e.target.value, 10);
-                setGwRange(function (prev) { return [Math.min(prev[0], v), v]; });
-              }}
-            >
-              {Array.from({ length: maxGw }, function (_, i) { return i + 1; }).map(function (gw) {
-                return <option key={gw} value={gw}>GW{gw}</option>;
-              })}
-            </select>
-          </div>
         </div>
 
-        {focusedIndex !== null ? (
-          <button className="chart-clear-focus" onClick={function () { setFocusedIndex(null); }}>
-            Clear focus
+        {hasFocus ? (
+          <button className="chart-clear-focus" onClick={clearFocus}>
+            Clear focus ({Object.keys(focusedSet).length})
           </button>
         ) : (
-          <span className="chart-hint">Click a name in the legend to focus</span>
+          <span className="chart-hint">Click names in the legend to focus</span>
         )}
       </div>
       <canvas ref={canvasRef}></canvas>
+      <div className="gw-slider-container">
+        <div className="gw-slider-track" ref={sliderRef}
+          onMouseDown={function (e) {
+            if (!sliderRef.current) return;
+            var rect = sliderRef.current.getBoundingClientRect();
+            var pct = (e.clientX - rect.left) / rect.width;
+            var gw = Math.round(pct * (maxGw - 1)) + 1;
+            gw = Math.max(1, Math.min(maxGw, gw));
+            // Determine which handle is closer
+            var distMin = Math.abs(gw - gwRange[0]);
+            var distMax = Math.abs(gw - gwRange[1]);
+            if (distMin <= distMax) {
+              setDragging('min');
+              setGwRange(function (prev) { return [Math.min(gw, prev[1]), prev[1]]; });
+            } else {
+              setDragging('max');
+              setGwRange(function (prev) { return [prev[0], Math.max(gw, prev[0])]; });
+            }
+            function onMove(ev) {
+              if (!sliderRef.current) return;
+              var r = sliderRef.current.getBoundingClientRect();
+              var p = (ev.clientX - r.left) / r.width;
+              var g = Math.round(p * (maxGw - 1)) + 1;
+              g = Math.max(1, Math.min(maxGw, g));
+              setGwRange(function (prev) {
+                // Use the dragging handle determined at mousedown via closure
+                if (distMin <= distMax) {
+                  return [Math.min(g, prev[1]), prev[1]];
+                } else {
+                  return [prev[0], Math.max(g, prev[0])];
+                }
+              });
+            }
+            function onUp() {
+              setDragging(null);
+              window.removeEventListener('mousemove', onMove);
+              window.removeEventListener('mouseup', onUp);
+            }
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+          }}
+          onTouchStart={function (e) {
+            if (!sliderRef.current) return;
+            var touch = e.touches[0];
+            var rect = sliderRef.current.getBoundingClientRect();
+            var pct = (touch.clientX - rect.left) / rect.width;
+            var gw = Math.round(pct * (maxGw - 1)) + 1;
+            gw = Math.max(1, Math.min(maxGw, gw));
+            var distMin = Math.abs(gw - gwRange[0]);
+            var distMax = Math.abs(gw - gwRange[1]);
+            if (distMin <= distMax) {
+              setDragging('min');
+              setGwRange(function (prev) { return [Math.min(gw, prev[1]), prev[1]]; });
+            } else {
+              setDragging('max');
+              setGwRange(function (prev) { return [prev[0], Math.max(gw, prev[0])]; });
+            }
+            function onTouchMove(ev) {
+              if (!sliderRef.current) return;
+              var t = ev.touches[0];
+              var r = sliderRef.current.getBoundingClientRect();
+              var p = (t.clientX - r.left) / r.width;
+              var g = Math.round(p * (maxGw - 1)) + 1;
+              g = Math.max(1, Math.min(maxGw, g));
+              setGwRange(function (prev) {
+                if (distMin <= distMax) {
+                  return [Math.min(g, prev[1]), prev[1]];
+                } else {
+                  return [prev[0], Math.max(g, prev[0])];
+                }
+              });
+            }
+            function onTouchEnd() {
+              setDragging(null);
+              window.removeEventListener('touchmove', onTouchMove);
+              window.removeEventListener('touchend', onTouchEnd);
+            }
+            window.addEventListener('touchmove', onTouchMove);
+            window.addEventListener('touchend', onTouchEnd);
+          }}
+        >
+          <div className="gw-slider-fill" style={{
+            left: ((gwRange[0] - 1) / (maxGw - 1) * 100) + '%',
+            width: (((gwRange[1] - gwRange[0]) / (maxGw - 1)) * 100) + '%',
+          }}></div>
+          <div className="gw-slider-handle" style={{ left: ((gwRange[0] - 1) / (maxGw - 1) * 100) + '%' }}>
+            <span className="gw-slider-label">GW{gwRange[0]}</span>
+          </div>
+          <div className="gw-slider-handle" style={{ left: ((gwRange[1] - 1) / (maxGw - 1) * 100) + '%' }}>
+            <span className="gw-slider-label">GW{gwRange[1]}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
