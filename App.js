@@ -1380,7 +1380,6 @@ function App() {
           <div>
             {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
             <LeagueStats
-              key={standings.length}
               standings={standings}
               playerNames={playerNames}
               hasMore={hasMore}
