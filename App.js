@@ -755,7 +755,7 @@ function CaptainAnalysisTable(props) {
     return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
   });
 
-  var colSpan = 6; // expand + # + Manager + Own Squad + Overall + GWs
+  var colSpan = 5; // expand + # + Manager + Own Squad + Overall
 
   return (
     <div className="stat-card" style={{ marginBottom: 20 }}>
@@ -774,9 +774,6 @@ function CaptainAnalysisTable(props) {
             </th>
             <th className="col-num sortable-th" onClick={function () { handleSort('correctOverallPct'); }}>
               Best Overall {sortIndicator('correctOverallPct')}
-            </th>
-            <th className="col-num sortable-th" onClick={function () { handleSort('totalGws'); }}>
-              GWs {sortIndicator('totalGws')}
             </th>
           </tr>
         </thead>
@@ -803,7 +800,6 @@ function CaptainAnalysisTable(props) {
                   <span>{row.correctOverall}/{row.totalGws}</span>
                   <span className="captain-pct"> ({row.correctOverallPct}%)</span>
                 </td>
-                <td className="col-num">{row.totalGws}</td>
               </tr>,
               isExpanded ? (
                 <tr className="bench-detail-row">
@@ -812,30 +808,23 @@ function CaptainAnalysisTable(props) {
                       <table className="captain-detail-table">
                         <thead>
                           <tr>
-                            <th>GW</th>
-                            <th>Your Captain</th>
-                            <th className="col-num">Pts</th>
-                            <th>Best in Squad</th>
-                            <th className="col-num">Pts</th>
-                            <th>GW Top Scorer</th>
-                            <th className="col-num">Pts</th>
+                            <th className="captain-col-gw">GW</th>
+                            <th className="captain-col-group" colSpan="2">Your Captain</th>
+                            <th className="captain-col-group" colSpan="2">Best in Squad</th>
+                            <th className="captain-col-group" colSpan="2">GW Top Scorer</th>
                           </tr>
                         </thead>
                         <tbody>
                           {row.gwDetails.slice().sort(function (a, b) { return b.gw - a.gw; }).map(function (gw) {
                             return (
-                              <tr key={gw.gw}>
-                                <td>GW{gw.gw}</td>
-                                <td className={gw.isCorrectOwn ? 'captain-correct' : 'captain-wrong'}>
-                                  {names[gw.captainId] || 'Unknown'}
-                                </td>
-                                <td className="col-num">{gw.captainPoints}</td>
-                                <td>{names[gw.bestOwnId] || 'Unknown'}</td>
-                                <td className="col-num">{gw.bestOwnPoints}</td>
-                                <td className={gw.isCorrectOverall ? 'captain-correct' : ''}>
-                                  {names[gw.topScorerId] || 'Unknown'}
-                                </td>
-                                <td className="col-num">{gw.topScorerPoints}</td>
+                              <tr key={gw.gw} className={gw.isCorrectOwn ? 'captain-row-correct' : 'captain-row-wrong'}>
+                                <td className="captain-col-gw">GW{gw.gw}</td>
+                                <td className="captain-col-name">{names[gw.captainId] || 'Unknown'}</td>
+                                <td className="captain-col-pts">{gw.captainPoints}</td>
+                                <td className="captain-col-name">{names[gw.bestOwnId] || 'Unknown'}</td>
+                                <td className="captain-col-pts">{gw.bestOwnPoints}</td>
+                                <td className="captain-col-name">{names[gw.topScorerId] || 'Unknown'}</td>
+                                <td className="captain-col-pts">{gw.topScorerPoints}</td>
                               </tr>
                             );
                           })}
@@ -1391,7 +1380,6 @@ function App() {
           <div>
             {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
             <LeagueStats
-              key={standings.length}
               standings={standings}
               playerNames={playerNames}
               hasMore={hasMore}
