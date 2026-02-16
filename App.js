@@ -489,30 +489,42 @@ function LeagueStatsTable(props) {
   var benchDetails = props.benchDetails;
   var names = props.playerNames;
   var loading = props.loading;
+  var hasMore = props.hasMore;
+  var onLoadMore = props.onLoadMore;
+  var loadingMore = props.loadingMore;
+  var totalShowing = props.totalShowing;
+  var statsReady = props.statsReady;
 
-  var [sortKey, setSortKey] = React.useState('totalBenchPoints');
+  var [sortKey, setSortKey] = React.useState('total');
   var [sortDir, setSortDir] = React.useState('desc');
-  var [expandedEntry, setExpandedEntry] = React.useState(null);
+  var [expandedSet, setExpandedSet] = React.useState({});
 
   function handleSort(key) {
     if (sortKey === key) {
       setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
     } else {
       setSortKey(key);
-      setSortDir('desc');
+      setSortDir(key === 'player_name' || key === 'entry_name' ? 'asc' : 'desc');
     }
   }
 
   function toggleRow(entry) {
-    setExpandedEntry(expandedEntry === entry ? null : entry);
+    setExpandedSet(function (prev) {
+      var next = Object.assign({}, prev);
+      if (next[entry]) { delete next[entry]; } else { next[entry] = true; }
+      return next;
+    });
   }
 
-  // Build unified data: merge history stats with captain stats
+  // Build unified data: merge standings with history stats and captain stats
   var data = managers.map(function (m) {
     var cs = captainStats ? captainStats[m.entry] : null;
     return {
       entry: m.entry,
       player_name: m.player_name,
+      entry_name: m.entry_name,
+      total: m.total,
+      rank: m.rank,
       totalBenchPoints: m.totalBenchPoints,
       totalTransfers: m.totalTransfers,
       totalHitsCost: m.totalHitsCost,
@@ -525,10 +537,9 @@ function LeagueStatsTable(props) {
   var sorted = data.slice().sort(function (a, b) {
     var aVal = a[sortKey];
     var bVal = b[sortKey];
-    // Handle null (loading captain data)
-    if (aVal === null) aVal = -1;
-    if (bVal === null) bVal = -1;
-    if (sortKey === 'player_name') {
+    if (aVal === null || aVal === undefined) aVal = sortDir === 'desc' ? -Infinity : Infinity;
+    if (bVal === null || bVal === undefined) bVal = sortDir === 'desc' ? -Infinity : Infinity;
+    if (sortKey === 'player_name' || sortKey === 'entry_name') {
       aVal = (aVal || '').toLowerCase();
       bVal = (bVal || '').toLowerCase();
       return sortDir === 'asc' ? (aVal < bVal ? -1 : 1) : (aVal > bVal ? -1 : 1);
@@ -536,7 +547,7 @@ function LeagueStatsTable(props) {
     return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
   });
 
-  var columns = [
+  var statColumns = [
     { key: 'totalBenchPoints', label: 'Bench Pts' },
     { key: 'totalTransfers', label: 'Transfers' },
     { key: 'totalHitsCost', label: 'Hits Cost' },
@@ -548,11 +559,11 @@ function LeagueStatsTable(props) {
     return <span className="sort-icon sort-active">{sortDir === 'desc' ? '\u25BC' : '\u25B2'}</span>;
   }
 
-  var colSpan = 2 + columns.length; // # + Manager + stat columns
+  var colSpan = 4 + statColumns.length; // # + Manager + Team + Points + stat columns
 
   return (
-    <div className="stats-section">
-      <h2>Detailed League Stats</h2>
+    <div className="stat-card" style={{ marginBottom: 20 }}>
+      <div className="card-header"><div className="card-indicator"></div> League Standings</div>
       <div className="table-scroll-wrapper">
       <table className="standings-table stats-table">
         <thead>
@@ -561,13 +572,19 @@ function LeagueStatsTable(props) {
             <th className="sortable-th" onClick={function () { handleSort('player_name'); }}>
               Manager {sortIndicator('player_name')}
             </th>
-            {columns.map(function (col) {
+            <th className="sortable-th" onClick={function () { handleSort('entry_name'); }}>
+              Team Name {sortIndicator('entry_name')}
+            </th>
+            <th className="col-num sortable-th" onClick={function () { handleSort('total'); }}>
+              Points {sortIndicator('total')}
+            </th>
+            {statsReady ? statColumns.map(function (col) {
               return (
                 <th key={col.key} className="col-num sortable-th" onClick={function () { handleSort(col.key); }}>
                   {col.label} {sortIndicator(col.key)}
                 </th>
               );
-            })}
+            }) : null}
           </tr>
         </thead>
         <tbody>
@@ -579,25 +596,31 @@ function LeagueStatsTable(props) {
             }).sort(function (a, b) { return b.count - a.count; });
             var hasBenchDetails = details.length > 0;
             var hasCaptainDetails = choiceList.length > 0;
-            var isExpanded = expandedEntry === row.entry;
-            var isClickable = loading || hasBenchDetails || hasCaptainDetails;
+            var isExpanded = !!expandedSet[row.entry];
+            var isClickable = statsReady && (loading || hasBenchDetails || hasCaptainDetails);
 
             return React.createElement(React.Fragment, { key: row.entry },
               <tr
                 className={isClickable ? 'expandable-row' : ''}
                 onClick={isClickable ? function () { toggleRow(row.entry); } : undefined}
               >
-                <td><RankBadge rank={i + 1} /></td>
+                <td><RankBadge rank={row.rank || (i + 1)} /></td>
                 <td>
                   {row.player_name}
                   {isClickable ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
                 </td>
-                <td className="col-num">{row.totalBenchPoints}</td>
-                <td className="col-num">{row.totalTransfers}</td>
-                <td className="col-num">{row.totalHitsCost}</td>
-                <td className="col-num">
-                  {row.totalCaptainPoints !== null ? row.totalCaptainPoints : <span className="value-loading"></span>}
-                </td>
+                <td>{row.entry_name}</td>
+                <td className="col-num"><span className="points-value">{row.total}</span></td>
+                {statsReady ? (
+                  React.createElement(React.Fragment, null,
+                    <td className="col-num">{row.totalBenchPoints}</td>,
+                    <td className="col-num">{row.totalTransfers}</td>,
+                    <td className="col-num">{row.totalHitsCost}</td>,
+                    <td className="col-num">
+                      {row.totalCaptainPoints !== null ? row.totalCaptainPoints : <span className="value-loading"></span>}
+                    </td>
+                  )
+                ) : null}
               </tr>,
               isExpanded ? (
                 <tr className="bench-detail-row">
@@ -647,6 +670,18 @@ function LeagueStatsTable(props) {
         </tbody>
       </table>
       </div>
+      {hasMore ? (
+        <div className="load-more-container">
+          <button className="league-button load-more-btn" onClick={onLoadMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading...' : 'Load more managers...'}
+          </button>
+          <span className="load-more-count">Showing {totalShowing} managers</span>
+        </div>
+      ) : totalShowing > 50 ? (
+        <div className="load-more-container">
+          <span className="load-more-count">Showing all {totalShowing} managers</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -744,6 +779,7 @@ function LeagueStats(props) {
           player_name: s.player_name,
           entry_name: s.entry_name,
           total: s.total,
+          rank: s.rank,
           history: history,
           chips: chips,
           totalBenchPoints: totalBenchPoints,
@@ -752,7 +788,7 @@ function LeagueStats(props) {
         };
       });
 
-      // Phase 1 done - render chart + bench totals + hits immediately
+      // Phase 1 done - render chart + table immediately
       setHistoryData({ managers: managerData });
       setPhase1Loading(false);
 
@@ -850,37 +886,33 @@ function LeagueStats(props) {
     }
   }
 
-  if (!historyData && !phase1Loading) {
-    return (
-      <div className="stats-section" style={{ textAlign: 'center' }}>
-        <button className="league-button stats-button" onClick={loadAllStats}>
-          Load Detailed Stats
-        </button>
-      </div>
-    );
-  }
+  // Auto-load stats on mount
+  React.useEffect(function () {
+    if (standings.length > 0) loadAllStats();
+  }, []);
 
-  if (phase1Loading) {
-    return (
-      <div className="stats-section">
-        <h2>Loading League Stats</h2>
-        <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
-      </div>
-    );
-  }
+  // Build managers list: use historyData if available, otherwise standings-only
+  var managers = historyData ? historyData.managers : standings.map(function (s) {
+    return {
+      entry: s.entry,
+      player_name: s.player_name,
+      entry_name: s.entry_name,
+      total: s.total,
+      rank: s.rank,
+      history: [],
+      totalBenchPoints: 0,
+      totalTransfers: 0,
+      totalHitsCost: 0,
+    };
+  });
 
-  if (statsError) {
-    return <p className="error-message">{statsError}</p>;
-  }
+  var statsReady = !!historyData;
 
-  // Phase 1 data ready - show chart + unified stats table
-  var managers = historyData.managers;
-
-  // Summary KPI values
+  // Summary KPI values (only show when stats are ready)
   var totalManagers = managers.length;
   var avgPoints = managers.length > 0 ? Math.round(managers.reduce(function (s, m) { return s + m.total; }, 0) / managers.length) : 0;
-  var totalBenchWasted = managers.reduce(function (s, m) { return s + m.totalBenchPoints; }, 0);
-  var totalHitsCost = managers.reduce(function (s, m) { return s + m.totalHitsCost; }, 0);
+  var totalBenchWasted = statsReady ? managers.reduce(function (s, m) { return s + m.totalBenchPoints; }, 0) : 0;
+  var totalHitsCost = statsReady ? managers.reduce(function (s, m) { return s + m.totalHitsCost; }, 0) : 0;
 
   // Phase 2 data - captain stats + bench details (may still be loading)
   var captainStats = picksData ? picksData.captainStats : null;
@@ -888,28 +920,40 @@ function LeagueStats(props) {
 
   return (
     <div className="stats-dashboard">
-      <div className="summary-row">
-        <div className="summary-item">
-          <div className="summary-label">Managers</div>
-          <div className="summary-value">{totalManagers}</div>
-        </div>
-        <div className="summary-item">
-          <div className="summary-label">Avg Points</div>
-          <div className="summary-value blue">{avgPoints.toLocaleString()}</div>
-        </div>
-        <div className="summary-item">
-          <div className="summary-label">Total Bench Wasted</div>
-          <div className="summary-value orange">{totalBenchWasted.toLocaleString()}</div>
-        </div>
-        <div className="summary-item">
-          <div className="summary-label">Total Hits Taken</div>
-          <div className="summary-value red">{totalHitsCost > 0 ? '-' + totalHitsCost.toLocaleString() : '0'}</div>
-        </div>
-      </div>
+      {statsError ? <p className="error-message">{statsError}</p> : null}
 
-      <div className="chart-container">
-        <PointsChart managers={managers} hasMore={props.hasMore} />
-      </div>
+      {phase1Loading ? (
+        <div className="stats-section">
+          <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
+        </div>
+      ) : null}
+
+      {statsReady ? (
+        <div className="summary-row">
+          <div className="summary-item">
+            <div className="summary-label">Managers</div>
+            <div className="summary-value">{totalManagers}</div>
+          </div>
+          <div className="summary-item">
+            <div className="summary-label">Avg Points</div>
+            <div className="summary-value blue">{avgPoints.toLocaleString()}</div>
+          </div>
+          <div className="summary-item">
+            <div className="summary-label">Total Bench Wasted</div>
+            <div className="summary-value orange">{totalBenchWasted.toLocaleString()}</div>
+          </div>
+          <div className="summary-item">
+            <div className="summary-label">Total Hits Taken</div>
+            <div className="summary-value red">{totalHitsCost > 0 ? '-' + totalHitsCost.toLocaleString() : '0'}</div>
+          </div>
+        </div>
+      ) : null}
+
+      {statsReady ? (
+        <div className="chart-container">
+          <PointsChart managers={managers} hasMore={props.hasMore} />
+        </div>
+      ) : null}
 
       {phase2Loading ? (
         <div style={{ marginBottom: '0.5rem' }}>
@@ -923,6 +967,11 @@ function LeagueStats(props) {
         benchDetails={benchDetails}
         playerNames={resolvedNames}
         loading={phase2Loading}
+        statsReady={statsReady}
+        hasMore={props.hasMore}
+        onLoadMore={props.onLoadMore}
+        loadingMore={props.loadingMore}
+        totalShowing={props.totalShowing}
       />
     </div>
   );
@@ -1113,46 +1162,15 @@ function App() {
         ) : standings.length > 0 ? (
           <div>
             {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
-            <div className="stat-card" style={{ marginBottom: 20 }}>
-              <div className="card-header"><div className="card-indicator"></div> League Standings</div>
-              <div className="table-scroll-wrapper">
-              <table className="standings-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Manager</th>
-                    <th>Team Name</th>
-                    <th className="col-num">Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {standings.map(function (player, index) {
-                    return (
-                      <tr key={player.entry}>
-                        <td><RankBadge rank={player.rank || (index + 1)} /></td>
-                        <td>{player.player_name}</td>
-                        <td>{player.entry_name}</td>
-                        <td className="col-num"><span className="points-value">{player.total}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
-              {hasMore ? (
-                <div className="load-more-container">
-                  <button className="league-button load-more-btn" onClick={loadMoreManagers} disabled={loadingMore}>
-                    {loadingMore ? 'Loading...' : 'Load more managers...'}
-                  </button>
-                  <span className="load-more-count">Showing {standings.length} managers</span>
-                </div>
-              ) : standings.length > 50 ? (
-                <div className="load-more-container">
-                  <span className="load-more-count">Showing all {standings.length} managers</span>
-                </div>
-              ) : null}
-            </div>
-            <LeagueStats key={standings.length} standings={standings} playerNames={playerNames} hasMore={hasMore} />
+            <LeagueStats
+              key={standings.length}
+              standings={standings}
+              playerNames={playerNames}
+              hasMore={hasMore}
+              onLoadMore={loadMoreManagers}
+              loadingMore={loadingMore}
+              totalShowing={standings.length}
+            />
           </div>
         ) : (
           <div className="empty-state">
