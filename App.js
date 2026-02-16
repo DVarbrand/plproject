@@ -532,6 +532,7 @@ function LeagueStatsTable(props) {
   return (
     <div className="stats-section">
       <h2>Detailed League Stats</h2>
+      <div className="table-scroll-wrapper">
       <table className="standings-table stats-table">
         <thead>
           <tr>
@@ -624,6 +625,7 @@ function LeagueStatsTable(props) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -1026,6 +1028,7 @@ function App() {
             {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
             <div className="stat-card" style={{ marginBottom: 20 }}>
               <div className="card-header"><div className="card-indicator"></div> League Standings</div>
+              <div className="table-scroll-wrapper">
               <table className="standings-table">
                 <thead>
                   <tr>
@@ -1048,6 +1051,7 @@ function App() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
             <LeagueStats standings={standings} playerNames={playerNames} />
           </div>
