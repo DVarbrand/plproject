@@ -568,6 +568,154 @@ body {
   box-shadow: var(--shadow-card);
 }
 
+/* === Chart Controls === */
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-slate-100);
+}
+
+.chart-toggle {
+  display: inline-flex;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-slate-200);
+}
+
+.chart-toggle-btn {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  border: none;
+  background: var(--color-white);
+  color: var(--color-slate-500);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.chart-toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--color-slate-200);
+}
+
+.chart-toggle-btn.active {
+  background: var(--color-blue-500);
+  color: var(--color-white);
+}
+
+.chart-toggle-btn:hover:not(.active) {
+  background: var(--color-slate-50);
+}
+
+.chart-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chart-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chart-filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-slate-400);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-right: 2px;
+}
+
+.chart-filter-btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  border: 1px solid var(--color-slate-200);
+  background: var(--color-white);
+  color: var(--color-slate-500);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.chart-filter-btn.active {
+  background: var(--color-blue-50);
+  color: var(--color-blue-600);
+  border-color: var(--color-blue-500);
+}
+
+.chart-filter-btn:hover:not(.active) {
+  background: var(--color-slate-50);
+}
+
+.chart-select {
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  color: var(--color-slate-700);
+  cursor: pointer;
+}
+
+.chart-select:focus {
+  outline: none;
+  border-color: var(--color-blue-500);
+}
+
+.chart-filter-sep {
+  color: var(--color-slate-300);
+  font-size: 0.75rem;
+}
+
+.chart-clear-focus {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  border: 1px solid var(--color-blue-500);
+  background: var(--color-blue-50);
+  color: var(--color-blue-600);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.chart-clear-focus:hover {
+  background: var(--color-blue-100);
+}
+
+.chart-hint {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--color-slate-400);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .chart-controls {
+    gap: 8px;
+  }
+
+  .chart-hint,
+  .chart-clear-focus {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* === Progress Bar === */
 
 .progress-container {
