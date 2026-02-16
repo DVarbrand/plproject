@@ -200,7 +200,14 @@ function PointsChart(props) {
           responsive: true,
           animation: { duration: 300 },
           plugins: {
-            title: { display: true, text: 'Points vs League Average', font: { size: 14, weight: 600 }, color: '#1e293b' },
+            title: {
+              display: true,
+              text: props.hasMore
+                ? 'Points vs Average (among ' + managersWithHistory.length + ' loaded managers)'
+                : 'Points vs League Average',
+              font: { size: 14, weight: 600 },
+              color: props.hasMore ? '#f59e0b' : '#1e293b',
+            },
             legend: {
               position: 'bottom',
               labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' },
@@ -364,9 +371,11 @@ function PointsChart(props) {
           <span className="chart-hint">Click names in the legend to focus</span>
         )}
       </div>
-      {mode === 'rank' && props.hasMore ? (
+      {props.hasMore ? (
         <div className="chart-warning">
-          Rank is calculated among the {managersWithHistory.length} loaded managers only. Load all managers from the standings table for accurate league-wide ranking.
+          {mode === 'rank'
+            ? 'Rank is calculated among the ' + managersWithHistory.length + ' loaded managers only. Load all managers from the standings table for accurate league-wide ranking.'
+            : 'Average is calculated among the ' + managersWithHistory.length + ' loaded managers only, not the entire league. Load all managers for accurate averages.'}
         </div>
       ) : null}
       <canvas ref={canvasRef}></canvas>
@@ -924,6 +933,30 @@ function getLeagueIdFromUrl() {
   return params.get('leagueId') || '';
 }
 
+function LandscapeOverlay() {
+  var [dismissed, setDismissed] = React.useState(false);
+
+  if (dismissed) return null;
+
+  return (
+    <div className="landscape-overlay">
+      <div className="landscape-overlay-content">
+        <div className="landscape-overlay-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="6" width="28" height="36" rx="4" stroke="#3b82f6" strokeWidth="2.5" fill="none"/>
+            <path d="M22 38h4" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M30 24l-6-6-6 6" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" transform="rotate(90 24 24)"/>
+          </svg>
+        </div>
+        <p className="landscape-overlay-text">Rotate your device for the best experience</p>
+        <button className="landscape-overlay-dismiss" onClick={function () { setDismissed(true); }}>
+          Continue anyway
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   var [leagueId, setLeagueId] = React.useState(getLeagueIdFromUrl);
   var [standings, setStandings] = React.useState([]);
@@ -1032,6 +1065,7 @@ function App() {
 
   return (
     <div className="app-container">
+      <LandscapeOverlay />
       <header className="app-header">
         <div className="header-logo">FPL</div>
         <h1>FPL League Hub</h1>

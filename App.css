@@ -1019,3 +1019,67 @@ body {
     font-size: 0.75rem;
   }
 }
+
+/* === Landscape Overlay (portrait mobile only) === */
+
+.landscape-overlay {
+  display: none;
+}
+
+@media (orientation: portrait) and (max-width: 640px) {
+  .landscape-overlay {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.landscape-overlay-content {
+  text-align: center;
+  padding: 2rem;
+}
+
+.landscape-overlay-icon {
+  margin-bottom: 1.25rem;
+  animation: rotate-hint 2s ease-in-out infinite;
+}
+
+@keyframes rotate-hint {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-90deg); }
+  50%, 75% { transform: rotate(-90deg); }
+}
+
+.landscape-overlay-text {
+  color: var(--color-white);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.landscape-overlay-dismiss {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 8px 20px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.landscape-overlay-dismiss:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+}
