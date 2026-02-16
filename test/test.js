@@ -342,3 +342,457 @@ describe('vercel.json rewrite pattern', function () {
     assert.equal(simulateRewrite('/api/standings/123'), null);
   });
 });
+
+// --- Tests for history length consistency filter (chart crash prevention) ---
+
+describe('chart history length filtering', function () {
+  // Replicate the filtering logic from PointsChart in App.js
+  function filterManagersForChart(managers) {
+    var managersWithHistory = (managers || []).filter(function (m) { return m.history.length > 0; });
+    var histLenCounts = {};
+    managersWithHistory.forEach(function (m) {
+      var len = m.history.length;
+      histLenCounts[len] = (histLenCounts[len] || 0) + 1;
+    });
+    var expectedHistLen = 0;
+    var maxCount = 0;
+    Object.keys(histLenCounts).forEach(function (len) {
+      if (histLenCounts[len] > maxCount) { maxCount = histLenCounts[len]; expectedHistLen = parseInt(len, 10); }
+    });
+    if (expectedHistLen > 0) {
+      managersWithHistory = managersWithHistory.filter(function (m) { return m.history.length === expectedHistLen; });
+    }
+    return managersWithHistory;
+  }
+
+  it('keeps all managers when history lengths are consistent', function () {
+    const managers = [
+      { entry: 1, history: [{ event: 1 }, { event: 2 }, { event: 3 }] },
+      { entry: 2, history: [{ event: 1 }, { event: 2 }, { event: 3 }] },
+      { entry: 3, history: [{ event: 1 }, { event: 2 }, { event: 3 }] },
+    ];
+    const result = filterManagersForChart(managers);
+    assert.equal(result.length, 3);
+  });
+
+  it('excludes managers with shorter history (mid-season joiners)', function () {
+    const managers = [
+      { entry: 1, history: [{ event: 1 }, { event: 2 }, { event: 3 }, { event: 4 }] },
+      { entry: 2, history: [{ event: 1 }, { event: 2 }, { event: 3 }, { event: 4 }] },
+      { entry: 3, history: [{ event: 3 }, { event: 4 }] }, // joined GW3
+    ];
+    const result = filterManagersForChart(managers);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].entry, 1);
+    assert.equal(result[1].entry, 2);
+  });
+
+  it('keeps the majority group when there are multiple different lengths', function () {
+    const managers = [
+      { entry: 1, history: [{ event: 1 }, { event: 2 }, { event: 3 }] },
+      { entry: 2, history: [{ event: 1 }, { event: 2 }, { event: 3 }] },
+      { entry: 3, history: [{ event: 1 }, { event: 2 }, { event: 3 }] },
+      { entry: 4, history: [{ event: 2 }, { event: 3 }] },
+      { entry: 5, history: [{ event: 3 }] },
+    ];
+    const result = filterManagersForChart(managers);
+    assert.equal(result.length, 3);
+    result.forEach(function (m) { assert.equal(m.history.length, 3); });
+  });
+
+  it('filters out managers with empty history', function () {
+    const managers = [
+      { entry: 1, history: [{ event: 1 }, { event: 2 }] },
+      { entry: 2, history: [] },
+      { entry: 3, history: [{ event: 1 }, { event: 2 }] },
+    ];
+    const result = filterManagersForChart(managers);
+    assert.equal(result.length, 2);
+    assert.ok(result.every(function (m) { return m.history.length === 2; }));
+  });
+
+  it('returns empty array for null/undefined managers', function () {
+    assert.equal(filterManagersForChart(null).length, 0);
+    assert.equal(filterManagersForChart(undefined).length, 0);
+  });
+
+  it('returns empty array when all managers have empty history', function () {
+    const managers = [
+      { entry: 1, history: [] },
+      { entry: 2, history: [] },
+    ];
+    assert.equal(filterManagersForChart(managers).length, 0);
+  });
+
+  it('handles single manager correctly', function () {
+    const managers = [
+      { entry: 1, history: [{ event: 1 }, { event: 2 }] },
+    ];
+    const result = filterManagersForChart(managers);
+    assert.equal(result.length, 1);
+  });
+});
+
+// --- Tests for pagination / load-more standings concatenation ---
+
+describe('load more managers pagination', function () {
+  // Replicate the standings concatenation logic from loadMoreManagers in App.js
+  function concatStandings(prev, apiResponse) {
+    if (!apiResponse || !apiResponse.standings || !Array.isArray(apiResponse.standings.results)) {
+      throw new Error('Unexpected API response format');
+    }
+    return {
+      standings: prev.concat(apiResponse.standings.results),
+      hasMore: !!apiResponse.standings.has_next,
+    };
+  }
+
+  const page1 = [
+    { entry: 1, player_name: 'Alice', total: 500, rank: 1 },
+    { entry: 2, player_name: 'Bob', total: 480, rank: 2 },
+  ];
+
+  it('appends new managers to existing standings', function () {
+    const apiResponse = {
+      standings: {
+        results: [
+          { entry: 3, player_name: 'Charlie', total: 460, rank: 3 },
+          { entry: 4, player_name: 'Diana', total: 450, rank: 4 },
+        ],
+        has_next: true,
+      },
+    };
+    const result = concatStandings(page1, apiResponse);
+    assert.equal(result.standings.length, 4);
+    assert.equal(result.standings[2].player_name, 'Charlie');
+    assert.equal(result.hasMore, true);
+  });
+
+  it('preserves original standings order', function () {
+    const apiResponse = {
+      standings: { results: [{ entry: 3, player_name: 'Charlie', total: 460, rank: 3 }], has_next: false },
+    };
+    const result = concatStandings(page1, apiResponse);
+    assert.equal(result.standings[0].player_name, 'Alice');
+    assert.equal(result.standings[1].player_name, 'Bob');
+    assert.equal(result.standings[2].player_name, 'Charlie');
+  });
+
+  it('sets hasMore to false on last page', function () {
+    const apiResponse = {
+      standings: { results: [{ entry: 5, player_name: 'Eve', total: 400, rank: 5 }], has_next: false },
+    };
+    const result = concatStandings(page1, apiResponse);
+    assert.equal(result.hasMore, false);
+  });
+
+  it('handles empty results page', function () {
+    const apiResponse = {
+      standings: { results: [], has_next: false },
+    };
+    const result = concatStandings(page1, apiResponse);
+    assert.equal(result.standings.length, 2); // unchanged
+    assert.equal(result.hasMore, false);
+  });
+
+  it('throws on invalid API response', function () {
+    assert.throws(function () { concatStandings(page1, null); });
+    assert.throws(function () { concatStandings(page1, {}); });
+    assert.throws(function () { concatStandings(page1, { standings: {} }); });
+    assert.throws(function () { concatStandings(page1, { standings: { results: 'not array' } }); });
+  });
+
+  it('does not mutate original array', function () {
+    const original = [{ entry: 1, player_name: 'Alice', total: 500, rank: 1 }];
+    const copy = original.slice();
+    const apiResponse = {
+      standings: { results: [{ entry: 2, player_name: 'Bob', total: 480, rank: 2 }], has_next: false },
+    };
+    concatStandings(original, apiResponse);
+    assert.deepEqual(original, copy);
+  });
+});
+
+// --- Tests for incremental manager data merging ---
+
+describe('incremental manager data merging', function () {
+  // Replicate the setHistoryData updater logic from loadIncrementalStats in App.js
+  function mergeHistoryData(prev, newManagerData) {
+    if (!prev || !prev.managers) return { managers: newManagerData };
+    return { managers: prev.managers.concat(newManagerData) };
+  }
+
+  // Replicate the setPicksData updater logic from loadIncrementalStats in App.js
+  function mergePicksData(prev, newData) {
+    if (!prev) return {
+      captainStats: newData.captainStats,
+      benchDetails: newData.benchDetails,
+      captainAnalysis: newData.captainAnalysis,
+    };
+    return {
+      captainStats: Object.assign({}, prev.captainStats, newData.captainStats),
+      benchDetails: Object.assign({}, prev.benchDetails, newData.benchDetails),
+      captainAnalysis: Object.assign({}, prev.captainAnalysis, newData.captainAnalysis),
+    };
+  }
+
+  it('merges new managers into existing historyData', function () {
+    const prev = { managers: [{ entry: 1, player_name: 'Alice' }] };
+    const newManagers = [{ entry: 2, player_name: 'Bob' }];
+    const result = mergeHistoryData(prev, newManagers);
+    assert.equal(result.managers.length, 2);
+    assert.equal(result.managers[0].entry, 1);
+    assert.equal(result.managers[1].entry, 2);
+  });
+
+  it('handles null prev historyData gracefully', function () {
+    const newManagers = [{ entry: 1, player_name: 'Alice' }];
+    const result = mergeHistoryData(null, newManagers);
+    assert.equal(result.managers.length, 1);
+    assert.equal(result.managers[0].entry, 1);
+  });
+
+  it('handles prev with missing managers property', function () {
+    const result = mergeHistoryData({}, [{ entry: 1 }]);
+    assert.equal(result.managers.length, 1);
+  });
+
+  it('does not mutate previous managers array', function () {
+    const prevManagers = [{ entry: 1 }];
+    const prev = { managers: prevManagers };
+    mergeHistoryData(prev, [{ entry: 2 }]);
+    assert.equal(prevManagers.length, 1); // original untouched
+  });
+
+  it('merges new picks data into existing picksData', function () {
+    const prev = {
+      captainStats: { 1: { totalCaptainPoints: 100 } },
+      benchDetails: { 1: [{ element: 50, points: 5 }] },
+      captainAnalysis: { 1: { correctOwn: 10, totalGws: 20 } },
+    };
+    const newData = {
+      captainStats: { 2: { totalCaptainPoints: 80 } },
+      benchDetails: { 2: [{ element: 60, points: 3 }] },
+      captainAnalysis: { 2: { correctOwn: 8, totalGws: 20 } },
+    };
+    const result = mergePicksData(prev, newData);
+    assert.equal(result.captainStats[1].totalCaptainPoints, 100);
+    assert.equal(result.captainStats[2].totalCaptainPoints, 80);
+    assert.equal(result.benchDetails[1].length, 1);
+    assert.equal(result.benchDetails[2].length, 1);
+    assert.equal(result.captainAnalysis[1].correctOwn, 10);
+    assert.equal(result.captainAnalysis[2].correctOwn, 8);
+  });
+
+  it('handles null prev picksData gracefully', function () {
+    const newData = {
+      captainStats: { 1: { totalCaptainPoints: 100 } },
+      benchDetails: { 1: [] },
+      captainAnalysis: { 1: { correctOwn: 5, totalGws: 10 } },
+    };
+    const result = mergePicksData(null, newData);
+    assert.equal(result.captainStats[1].totalCaptainPoints, 100);
+    assert.equal(result.captainAnalysis[1].correctOwn, 5);
+  });
+});
+
+// --- Tests for captain analysis data building with missing/partial data ---
+
+describe('captain analysis data building', function () {
+  // Replicate the CaptainAnalysisTable data building logic from App.js
+  function buildCaptainAnalysisData(standings, analysis) {
+    return standings.map(function (s) {
+      var ca = analysis[s.entry];
+      if (!ca || ca.totalGws === 0) {
+        return {
+          entry: s.entry,
+          player_name: s.player_name,
+          totalGws: 0,
+          correctOwn: 0,
+          correctOwnPct: 0,
+          correctOverall: 0,
+          correctOverallPct: 0,
+          gwDetails: [],
+        };
+      }
+      return {
+        entry: s.entry,
+        player_name: s.player_name,
+        totalGws: ca.totalGws,
+        correctOwn: ca.correctOwn,
+        correctOwnPct: Math.round((ca.correctOwn / ca.totalGws) * 100),
+        correctOverall: ca.correctOverall,
+        correctOverallPct: Math.round((ca.correctOverall / ca.totalGws) * 100),
+        gwDetails: ca.gwDetails,
+      };
+    });
+  }
+
+  it('builds correct percentages from analysis data', function () {
+    const standings = [{ entry: 1, player_name: 'Alice' }];
+    const analysis = { 1: { totalGws: 20, correctOwn: 15, correctOverall: 5, gwDetails: [] } };
+    const data = buildCaptainAnalysisData(standings, analysis);
+    assert.equal(data[0].correctOwnPct, 75); // 15/20 = 75%
+    assert.equal(data[0].correctOverallPct, 25); // 5/20 = 25%
+  });
+
+  it('returns zeros for managers not in analysis', function () {
+    const standings = [
+      { entry: 1, player_name: 'Alice' },
+      { entry: 2, player_name: 'Bob' },
+    ];
+    const analysis = { 1: { totalGws: 10, correctOwn: 8, correctOverall: 3, gwDetails: [] } };
+    const data = buildCaptainAnalysisData(standings, analysis);
+    assert.equal(data[0].correctOwnPct, 80);
+    assert.equal(data[1].totalGws, 0);
+    assert.equal(data[1].correctOwnPct, 0);
+    assert.equal(data[1].correctOverallPct, 0);
+    assert.deepEqual(data[1].gwDetails, []);
+  });
+
+  it('returns zeros when analysis entry has totalGws of 0', function () {
+    const standings = [{ entry: 1, player_name: 'Alice' }];
+    const analysis = { 1: { totalGws: 0, correctOwn: 0, correctOverall: 0, gwDetails: [] } };
+    const data = buildCaptainAnalysisData(standings, analysis);
+    assert.equal(data[0].totalGws, 0);
+    assert.equal(data[0].correctOwnPct, 0);
+  });
+
+  it('handles empty standings array', function () {
+    assert.equal(buildCaptainAnalysisData([], {}).length, 0);
+  });
+
+  it('handles empty analysis object', function () {
+    const standings = [{ entry: 1, player_name: 'Alice' }];
+    const data = buildCaptainAnalysisData(standings, {});
+    assert.equal(data[0].totalGws, 0);
+    assert.equal(data[0].player_name, 'Alice');
+  });
+
+  it('handles 100% correct captain picks', function () {
+    const standings = [{ entry: 1, player_name: 'Alice' }];
+    const analysis = { 1: { totalGws: 25, correctOwn: 25, correctOverall: 25, gwDetails: [] } };
+    const data = buildCaptainAnalysisData(standings, analysis);
+    assert.equal(data[0].correctOwnPct, 100);
+    assert.equal(data[0].correctOverallPct, 100);
+  });
+});
+
+// --- Tests for cache path classification (isHistoricalPath) ---
+
+describe('cache path classification', function () {
+  // Replicate isHistoricalPath logic from App.js
+  function isHistoricalPath(path, currentEvent) {
+    if (!currentEvent) return false;
+    var liveMatch = path.match(/^event\/(\d+)\/live$/);
+    if (liveMatch) return parseInt(liveMatch[1], 10) < currentEvent;
+    var picksMatch = path.match(/^entry\/\d+\/event\/(\d+)\/picks$/);
+    if (picksMatch) return parseInt(picksMatch[1], 10) < currentEvent;
+    return false;
+  }
+
+  it('classifies past GW live data as historical', function () {
+    assert.equal(isHistoricalPath('event/5/live', 10), true);
+    assert.equal(isHistoricalPath('event/1/live', 2), true);
+  });
+
+  it('classifies current GW live data as non-historical', function () {
+    assert.equal(isHistoricalPath('event/10/live', 10), false);
+  });
+
+  it('classifies future GW live data as non-historical', function () {
+    assert.equal(isHistoricalPath('event/15/live', 10), false);
+  });
+
+  it('classifies past GW picks as historical', function () {
+    assert.equal(isHistoricalPath('entry/123/event/5/picks', 10), true);
+  });
+
+  it('classifies current GW picks as non-historical', function () {
+    assert.equal(isHistoricalPath('entry/123/event/10/picks', 10), false);
+  });
+
+  it('returns false when currentEvent is null', function () {
+    assert.equal(isHistoricalPath('event/5/live', null), false);
+    assert.equal(isHistoricalPath('entry/123/event/5/picks', null), false);
+  });
+
+  it('returns false for non-matching paths', function () {
+    assert.equal(isHistoricalPath('bootstrap-static', 10), false);
+    assert.equal(isHistoricalPath('entry/123/history', 10), false);
+    assert.equal(isHistoricalPath('', 10), false);
+  });
+});
+
+// --- Tests for table data merge (standings + captain stats) ---
+
+describe('table data merge logic', function () {
+  // Replicate the data merge logic from LeagueStatsTable in App.js
+  function mergeTableData(managers, captainStats) {
+    return managers.map(function (m) {
+      var cs = captainStats ? captainStats[m.entry] : null;
+      return {
+        entry: m.entry,
+        player_name: m.player_name,
+        entry_name: m.entry_name,
+        total: m.total,
+        rank: m.rank,
+        totalBenchPoints: m.totalBenchPoints,
+        totalTransfers: m.totalTransfers,
+        totalHitsCost: m.totalHitsCost,
+        totalCaptainPoints: cs ? cs.totalCaptainPoints : null,
+        captainChoices: cs ? cs.captainChoices : {},
+      };
+    });
+  }
+
+  const managers = [
+    { entry: 1, player_name: 'Alice', entry_name: 'Team A', total: 500, rank: 1, totalBenchPoints: 50, totalTransfers: 10, totalHitsCost: 8 },
+    { entry: 2, player_name: 'Bob', entry_name: 'Team B', total: 480, rank: 2, totalBenchPoints: 40, totalTransfers: 12, totalHitsCost: 4 },
+  ];
+
+  it('merges captain stats into manager data', function () {
+    const captainStats = {
+      1: { totalCaptainPoints: 200, captainChoices: { '100': { count: 5, points: 80 } } },
+      2: { totalCaptainPoints: 180, captainChoices: {} },
+    };
+    const data = mergeTableData(managers, captainStats);
+    assert.equal(data[0].totalCaptainPoints, 200);
+    assert.equal(data[1].totalCaptainPoints, 180);
+    assert.equal(data[0].captainChoices['100'].count, 5);
+  });
+
+  it('returns null captain points when stats not yet loaded', function () {
+    const data = mergeTableData(managers, null);
+    assert.equal(data[0].totalCaptainPoints, null);
+    assert.deepEqual(data[0].captainChoices, {});
+    assert.equal(data[1].totalCaptainPoints, null);
+  });
+
+  it('returns null captain points for managers missing from captainStats', function () {
+    const captainStats = {
+      1: { totalCaptainPoints: 200, captainChoices: {} },
+      // entry 2 not present — newly loaded manager
+    };
+    const data = mergeTableData(managers, captainStats);
+    assert.equal(data[0].totalCaptainPoints, 200);
+    assert.equal(data[1].totalCaptainPoints, null);
+    assert.deepEqual(data[1].captainChoices, {});
+  });
+
+  it('preserves all manager fields through merge', function () {
+    const data = mergeTableData(managers, null);
+    assert.equal(data[0].player_name, 'Alice');
+    assert.equal(data[0].entry_name, 'Team A');
+    assert.equal(data[0].total, 500);
+    assert.equal(data[0].rank, 1);
+    assert.equal(data[0].totalBenchPoints, 50);
+    assert.equal(data[0].totalTransfers, 10);
+    assert.equal(data[0].totalHitsCost, 8);
+  });
+
+  it('handles empty managers array', function () {
+    const data = mergeTableData([], { 1: { totalCaptainPoints: 100, captainChoices: {} } });
+    assert.equal(data.length, 0);
+  });
+});
