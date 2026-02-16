@@ -911,8 +911,7 @@ function App() {
       <header className="app-header">
         <div className="header-logo">FPL</div>
         <h1>FPL League Hub</h1>
-        <span className="header-badge">2024/25</span>
-        <div className="subtitle">Stats & Insights</div>
+        <span className="header-badge">2025/26</span>
       </header>
       <main className="app-content">
         <form className="league-form" onSubmit={handleSubmit}>
@@ -926,8 +925,17 @@ function App() {
           <button type="submit" className="league-button" disabled={loading}>
             {loading ? 'Loading...' : 'Fetch Standings'}
           </button>
-          {standings.length > 0 ? <span className="url-hint">Share this page URL to let others see your league</span> : null}
         </form>
+        {standings.length > 0 ? (
+          <button className="share-button" onClick={function () {
+            navigator.clipboard.writeText(window.location.href).then(function () {
+              var btn = document.querySelector('.share-button');
+              var orig = btn.textContent;
+              btn.textContent = '\u2713 Copied!';
+              setTimeout(function () { btn.textContent = orig; }, 2000);
+            });
+          }}>&#x1F517; Share...</button>
+        ) : null}
         {error ? (
           <p className="error-message">{error}</p>
         ) : loading ? (
