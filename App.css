@@ -686,25 +686,59 @@ body {
   background: var(--color-slate-50);
 }
 
-.chart-select {
-  padding: 4px 6px;
-  font-size: 0.75rem;
-  font-family: var(--font-body);
-  border: 1px solid var(--color-slate-200);
-  border-radius: var(--radius-sm);
-  background: var(--color-white);
-  color: var(--color-slate-700);
+/* === GW Range Slider === */
+
+.gw-slider-container {
+  padding: 8px 0 4px;
+  user-select: none;
+}
+
+.gw-slider-track {
+  position: relative;
+  height: 6px;
+  background: var(--color-slate-200);
+  border-radius: 3px;
   cursor: pointer;
+  margin: 12px 0 8px;
 }
 
-.chart-select:focus {
-  outline: none;
-  border-color: var(--color-blue-500);
+.gw-slider-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--color-blue-500);
+  border-radius: 3px;
 }
 
-.chart-filter-sep {
-  color: var(--color-slate-300);
-  font-size: 0.75rem;
+.gw-slider-handle {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  background: var(--color-white);
+  border: 2px solid var(--color-blue-500);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  z-index: 2;
+  touch-action: none;
+}
+
+.gw-slider-handle:active {
+  cursor: grabbing;
+  background: var(--color-blue-50);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.gw-slider-label {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-blue-600);
+  white-space: nowrap;
 }
 
 .chart-clear-focus {
