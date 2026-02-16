@@ -362,6 +362,7 @@ body {
 
 .stats-dashboard {
   margin-top: 24px;
+  min-width: 0;
 }
 
 .stats-section {
@@ -584,6 +585,13 @@ body {
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-slate-200);
   box-shadow: var(--shadow-card);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: auto !important;
 }
 
 /* === Chart Controls === */
@@ -826,6 +834,14 @@ body {
   margin: 0;
 }
 
+/* === Table Scroll Wrapper === */
+
+.table-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -1px;
+}
+
 /* === Responsive === */
 
 @media (max-width: 640px) {
@@ -839,7 +855,12 @@ body {
   }
 
   .app-content {
-    padding: 16px;
+    padding: 12px;
+  }
+
+  .league-name {
+    font-size: 1.15rem;
+    margin: 1rem 0 0.75rem;
   }
 
   .league-input {
@@ -849,6 +870,10 @@ body {
   .league-form {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .league-form .league-button {
+    width: 100%;
   }
 
   .summary-row {
@@ -864,9 +889,100 @@ body {
     font-size: 1.1rem;
   }
 
+  /* Chart */
+  .chart-container {
+    padding: 12px 8px;
+  }
+
+  .chart-controls {
+    gap: 6px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chart-toggle-btn {
+    padding: 5px 10px;
+    font-size: 0.72rem;
+  }
+
+  .chart-filters {
+    width: 100%;
+  }
+
+  .chart-filter-btn {
+    padding: 3px 8px;
+    font-size: 0.7rem;
+  }
+
+  .chart-hint,
+  .chart-clear-focus {
+    margin-left: 0;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Slider: bigger touch targets on mobile */
+  .gw-slider-handle {
+    width: 22px;
+    height: 22px;
+  }
+
+  .gw-slider-track {
+    height: 8px;
+    margin: 16px 0 10px;
+  }
+
+  /* Tables */
   .standings-table th,
   .standings-table td {
-    padding: 8px 12px;
-    font-size: 0.8rem;
+    padding: 8px 10px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .standings-table th:first-child,
+  .standings-table td:first-child {
+    width: 36px;
+  }
+
+  .rank-badge {
+    width: 22px;
+    height: 22px;
+    font-size: 0.65rem;
+  }
+
+  .expand-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 0.55rem;
+    margin-left: 4px;
+  }
+
+  .bench-detail-list {
+    padding: 6px 10px 8px;
+    gap: 4px;
+  }
+
+  .bench-detail-item {
+    padding: 2px 6px;
+    font-size: 0.7rem;
+  }
+
+  .bench-detail-label {
+    font-size: 0.68rem;
+    width: 100%;
+  }
+
+  .stat-card {
+    border-radius: var(--radius-md);
+  }
+
+  .card-header {
+    padding: 10px 12px 8px;
+    font-size: 0.75rem;
+  }
+
+  .stats-section h2 {
+    font-size: 0.75rem;
   }
 }
