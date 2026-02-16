@@ -919,6 +919,9 @@ function App() {
   var [playerNames, setPlayerNames] = React.useState({});
   var [error, setError] = React.useState(null);
   var [loading, setLoading] = React.useState(false);
+  var [hasMore, setHasMore] = React.useState(false);
+  var [currentPage, setCurrentPage] = React.useState(1);
+  var [loadingMore, setLoadingMore] = React.useState(false);
 
   function fetchLeague(id) {
     if (!id.trim()) return;
@@ -926,6 +929,8 @@ function App() {
     setLoading(true);
     setError(null);
     setStandings([]);
+    setCurrentPage(1);
+    setHasMore(false);
 
     fetch('/api/standings/' + id.trim())
       .then(function (r) {
@@ -934,6 +939,7 @@ function App() {
       })
       .then(function (data) {
         setStandings(data.standings.results);
+        setHasMore(data.standings.has_next);
         setLeagueName(data.league ? data.league.name : '');
         setLoading(false);
 
@@ -959,6 +965,29 @@ function App() {
         console.error('Error fetching data:', err);
         setError('Failed to load standings. Check the league ID and try again.');
         setLoading(false);
+      });
+  }
+
+  function loadMoreManagers() {
+    var nextPage = currentPage + 1;
+    var id = leagueId.trim();
+    if (!id || loadingMore) return;
+
+    setLoadingMore(true);
+    fetch('/api/standings/' + id + '?page=' + nextPage)
+      .then(function (r) {
+        if (!r.ok) throw new Error('API request failed with status ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        setStandings(function (prev) { return prev.concat(data.standings.results); });
+        setHasMore(data.standings.has_next);
+        setCurrentPage(nextPage);
+        setLoadingMore(false);
+      })
+      .catch(function (err) {
+        console.error('Error loading more:', err);
+        setLoadingMore(false);
       });
   }
 
@@ -1042,7 +1071,7 @@ function App() {
                   {standings.map(function (player, index) {
                     return (
                       <tr key={player.entry}>
-                        <td><RankBadge rank={index + 1} /></td>
+                        <td><RankBadge rank={player.rank || (index + 1)} /></td>
                         <td>{player.player_name}</td>
                         <td>{player.entry_name}</td>
                         <td className="col-num"><span className="points-value">{player.total}</span></td>
@@ -1052,8 +1081,20 @@ function App() {
                 </tbody>
               </table>
               </div>
+              {hasMore ? (
+                <div className="load-more-container">
+                  <button className="league-button load-more-btn" onClick={loadMoreManagers} disabled={loadingMore}>
+                    {loadingMore ? 'Loading...' : 'Load more managers...'}
+                  </button>
+                  <span className="load-more-count">Showing {standings.length} managers</span>
+                </div>
+              ) : standings.length > 50 ? (
+                <div className="load-more-container">
+                  <span className="load-more-count">Showing all {standings.length} managers</span>
+                </div>
+              ) : null}
             </div>
-            <LeagueStats standings={standings} playerNames={playerNames} />
+            <LeagueStats key={standings.length} standings={standings} playerNames={playerNames} />
           </div>
         ) : (
           <div className="empty-state">

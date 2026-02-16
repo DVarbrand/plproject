@@ -8,7 +8,9 @@ module.exports = (req, res) => {
     return;
   }
 
-  const url = `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`;
+  const page = req.query.page;
+  const qs = page && /^\d+$/.test(page) ? `?page_standings=${page}` : '';
+  const url = `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/${qs}`;
 
   https.get(url, {
     headers: {
