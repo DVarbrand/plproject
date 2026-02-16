@@ -823,31 +823,39 @@ function CaptainAnalysisTable(props) {
                 <tr className="bench-detail-row">
                   <td colSpan={colSpan}>
                     <div className="captain-gw-details">
-                      <table className="captain-detail-table">
-                        <thead>
-                          <tr>
-                            <th className="captain-col-gw">GW</th>
-                            <th className="captain-col-group" colSpan="2">Your Captain</th>
-                            <th className="captain-col-group" colSpan="2">Best in Squad</th>
-                            <th className="captain-col-group" colSpan="2">GW Top Scorer</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {row.gwDetails.slice().sort(function (a, b) { return b.gw - a.gw; }).map(function (gw) {
-                            return (
-                              <tr key={gw.gw} className={gw.isCorrectOwn ? 'captain-row-correct' : 'captain-row-wrong'}>
-                                <td className="captain-col-gw">GW{gw.gw}</td>
-                                <td className="captain-col-name">{names[gw.captainId] || 'Unknown'}</td>
-                                <td className="captain-col-pts">{gw.captainPoints}</td>
-                                <td className="captain-col-name">{names[gw.bestOwnId] || 'Unknown'}</td>
-                                <td className="captain-col-pts">{gw.bestOwnPoints}</td>
-                                <td className="captain-col-name">{names[gw.topScorerId] || 'Unknown'}</td>
-                                <td className="captain-col-pts">{gw.topScorerPoints}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                      {row.gwDetails.slice().sort(function (a, b) { return b.gw - a.gw; }).map(function (gw) {
+                        var captainName = names[gw.captainId] || 'Unknown';
+                        var bestOwnName = names[gw.bestOwnId] || 'Unknown';
+                        var topScorerName = names[gw.topScorerId] || 'Unknown';
+                        var isBestOwnMatch = gw.captainId === gw.bestOwnId;
+                        var isTopScorerMatch = gw.captainId === gw.topScorerId;
+
+                        return (
+                          <div key={gw.gw} className="captain-gw-row">
+                            <span className="captain-gw-label">GW{gw.gw}</span>
+                            <div className="captain-gw-picks">
+                              <span className="captain-gw-group">
+                                <span className="captain-gw-group-label">Captain</span>
+                                <span className={'captain-gw-pill' + (gw.isCorrectOwn ? ' captain-gw-pill-success' : ' captain-gw-pill-miss')}>
+                                  {captainName} ({gw.captainPoints} pts)
+                                </span>
+                              </span>
+                              <span className="captain-gw-group">
+                                <span className="captain-gw-group-label">Best in squad</span>
+                                <span className={'captain-gw-pill' + (isBestOwnMatch ? ' captain-gw-pill-success' : '')}>
+                                  {bestOwnName} ({gw.bestOwnPoints} pts)
+                                </span>
+                              </span>
+                              <span className="captain-gw-group">
+                                <span className="captain-gw-group-label">GW top scorer</span>
+                                <span className={'captain-gw-pill' + (isTopScorerMatch ? ' captain-gw-pill-success' : '')}>
+                                  {topScorerName} ({gw.topScorerPoints} pts)
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </td>
                 </tr>
