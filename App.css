@@ -548,13 +548,31 @@ body {
   padding: 8px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
+}
+
+.captain-gw-header {
+  display: grid;
+  grid-template-columns: 38px 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 0 0 6px;
+  border-bottom: 2px solid var(--color-slate-200);
+  margin-bottom: 2px;
+}
+
+.captain-gw-col-header {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-slate-400);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .captain-gw-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 38px 1fr 1fr 1fr;
+  gap: 8px;
   align-items: center;
-  gap: 10px;
   padding: 4px 0;
   border-bottom: 1px solid var(--color-slate-100);
 }
@@ -567,30 +585,8 @@ body {
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--color-slate-400);
-  min-width: 38px;
   text-align: center;
   flex-shrink: 0;
-}
-
-.captain-gw-picks {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.captain-gw-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.captain-gw-group-label {
-  font-size: 0.68rem;
-  color: var(--color-slate-400);
-  font-weight: 500;
-  white-space: nowrap;
 }
 
 .captain-gw-pill {
@@ -604,6 +600,7 @@ body {
   color: var(--color-slate-700);
   font-weight: 500;
   white-space: nowrap;
+  width: fit-content;
 }
 
 .captain-gw-pill-success {
@@ -611,12 +608,6 @@ body {
   border-color: rgba(34, 197, 94, 0.35);
   color: var(--color-green-600, #16a34a);
   font-weight: 600;
-}
-
-.captain-gw-pill-miss {
-  background: rgba(239, 68, 68, 0.06);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: var(--color-red-500);
 }
 
 /* === Loading Shimmer === */

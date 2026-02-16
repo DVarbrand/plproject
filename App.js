@@ -823,6 +823,12 @@ function CaptainAnalysisTable(props) {
                 <tr className="bench-detail-row">
                   <td colSpan={colSpan}>
                     <div className="captain-gw-details">
+                      <div className="captain-gw-header">
+                        <span className="captain-gw-label"></span>
+                        <span className="captain-gw-col-header">Captain</span>
+                        <span className="captain-gw-col-header">Best in squad</span>
+                        <span className="captain-gw-col-header">GW top scorer</span>
+                      </div>
                       {row.gwDetails.slice().sort(function (a, b) { return b.gw - a.gw; }).map(function (gw) {
                         var captainName = names[gw.captainId] || 'Unknown';
                         var bestOwnName = names[gw.bestOwnId] || 'Unknown';
@@ -833,26 +839,15 @@ function CaptainAnalysisTable(props) {
                         return (
                           <div key={gw.gw} className="captain-gw-row">
                             <span className="captain-gw-label">GW{gw.gw}</span>
-                            <div className="captain-gw-picks">
-                              <span className="captain-gw-group">
-                                <span className="captain-gw-group-label">Captain</span>
-                                <span className={'captain-gw-pill' + (gw.isCorrectOwn ? ' captain-gw-pill-success' : ' captain-gw-pill-miss')}>
-                                  {captainName} ({gw.captainPoints} pts)
-                                </span>
-                              </span>
-                              <span className="captain-gw-group">
-                                <span className="captain-gw-group-label">Best in squad</span>
-                                <span className={'captain-gw-pill' + (isBestOwnMatch ? ' captain-gw-pill-success' : '')}>
-                                  {bestOwnName} ({gw.bestOwnPoints} pts)
-                                </span>
-                              </span>
-                              <span className="captain-gw-group">
-                                <span className="captain-gw-group-label">GW top scorer</span>
-                                <span className={'captain-gw-pill' + (isTopScorerMatch ? ' captain-gw-pill-success' : '')}>
-                                  {topScorerName} ({gw.topScorerPoints} pts)
-                                </span>
-                              </span>
-                            </div>
+                            <span className="captain-gw-pill">
+                              {captainName} ({gw.captainPoints} pts)
+                            </span>
+                            <span className={'captain-gw-pill' + (isBestOwnMatch ? ' captain-gw-pill-success' : '')}>
+                              {bestOwnName} ({gw.bestOwnPoints} pts)
+                            </span>
+                            <span className={'captain-gw-pill' + (isTopScorerMatch ? ' captain-gw-pill-success' : '')}>
+                              {topScorerName} ({gw.topScorerPoints} pts)
+                            </span>
                           </div>
                         );
                       })}
