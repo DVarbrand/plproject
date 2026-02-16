@@ -1356,15 +1356,17 @@ function LeagueStats(props) {
   var benchDetails = picksData ? picksData.benchDetails : null;
   var captainAnalysis = picksData ? picksData.captainAnalysis : null;
 
+  var isLoading = phase1Loading || phase2Loading;
+
   return (
     <div className="stats-dashboard">
-      {statsError ? <p className="error-message">{statsError}</p> : null}
-
-      {phase1Loading ? (
-        <div className="stats-section">
+      {isLoading ? (
+        <div className="stats-loading-bar">
           <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
         </div>
       ) : null}
+
+      {statsError ? <p className="error-message">{statsError}</p> : null}
 
       {statsReady ? (
         <div className="summary-row">
@@ -1399,12 +1401,6 @@ function LeagueStats(props) {
         loadingMore={props.loadingMore}
         totalShowing={props.totalShowing}
       />
-
-      {phase2Loading ? (
-        <div style={{ marginBottom: '0.5rem' }}>
-          <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
-        </div>
-      ) : null}
 
       {statsReady ? (
         <div className="chart-container">
