@@ -117,6 +117,20 @@ function PointsChart(props) {
   function clearFocus() { setFocusedSet({}); }
 
   var managersWithHistory = (props.managers || []).filter(function (m) { return m.history.length > 0; });
+  // Ensure consistent history lengths - use the most common length to avoid chart crashes
+  var histLenCounts = {};
+  managersWithHistory.forEach(function (m) {
+    var len = m.history.length;
+    histLenCounts[len] = (histLenCounts[len] || 0) + 1;
+  });
+  var expectedHistLen = 0;
+  var maxCount = 0;
+  Object.keys(histLenCounts).forEach(function (len) {
+    if (histLenCounts[len] > maxCount) { maxCount = histLenCounts[len]; expectedHistLen = parseInt(len, 10); }
+  });
+  if (expectedHistLen > 0) {
+    managersWithHistory = managersWithHistory.filter(function (m) { return m.history.length === expectedHistLen; });
+  }
 
   // Compute max GW on data change
   React.useEffect(function () {
@@ -131,6 +145,7 @@ function PointsChart(props) {
   // Build + render chart
   React.useEffect(function () {
     if (managersWithHistory.length === 0 || !canvasRef.current) return;
+    try {
     if (chartRef.current) chartRef.current.destroy();
 
     var allHistory = managersWithHistory[0].history;
@@ -322,7 +337,10 @@ function PointsChart(props) {
       });
     }
 
-    return function () { if (chartRef.current) chartRef.current.destroy(); };
+    } catch (err) {
+      console.error('Chart render error:', err);
+    }
+    return function () { try { if (chartRef.current) chartRef.current.destroy(); } catch (e) {} };
   }, [props.managers, mode, topN, gwRange, focusedSet]);
 
   if (managersWithHistory.length === 0) return null;
@@ -1129,6 +1147,7 @@ function LeagueStats(props) {
       });
 
       setHistoryData(function (prev) {
+        if (!prev || !prev.managers) return { managers: newManagerData };
         return { managers: prev.managers.concat(newManagerData) };
       });
       setPhase1Loading(false);
