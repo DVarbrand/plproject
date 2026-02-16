@@ -383,68 +383,104 @@ function RankBadge(props) {
   return <span className={cls}>{rank}</span>;
 }
 
-function StatsTable(props) {
-  return (
-    <div className="stats-section">
-      <h2>{props.title}</h2>
-      <table className="standings-table stats-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Manager</th>
-            {props.columns.map(function (col) {
-              var isText = col.key === 'mostCaptained' || col.key === 'entry_name';
-              return <th key={col.key} className={isText ? '' : 'col-num'}>{col.label}</th>;
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {props.data.map(function (row, i) {
-            return (
-              <tr key={row.entry}>
-                <td><RankBadge rank={i + 1} /></td>
-                <td>{row.player_name}</td>
-                {props.columns.map(function (col) {
-                  var isText = col.key === 'mostCaptained' || col.key === 'entry_name';
-                  return <td key={col.key} className={isText ? '' : 'col-num'}>{row[col.key]}</td>;
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function BenchTable(props) {
-  var data = props.data;
+function LeagueStatsTable(props) {
+  var managers = props.managers;
+  var captainStats = props.captainStats;
   var benchDetails = props.benchDetails;
   var names = props.playerNames;
   var loading = props.loading;
+
+  var [sortKey, setSortKey] = React.useState('totalBenchPoints');
+  var [sortDir, setSortDir] = React.useState('desc');
   var [expandedEntry, setExpandedEntry] = React.useState(null);
+
+  function handleSort(key) {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  }
 
   function toggleRow(entry) {
     setExpandedEntry(expandedEntry === entry ? null : entry);
   }
 
+  // Build unified data: merge history stats with captain stats
+  var data = managers.map(function (m) {
+    var cs = captainStats ? captainStats[m.entry] : null;
+    return {
+      entry: m.entry,
+      player_name: m.player_name,
+      totalBenchPoints: m.totalBenchPoints,
+      totalTransfers: m.totalTransfers,
+      totalHitsCost: m.totalHitsCost,
+      totalCaptainPoints: cs ? cs.totalCaptainPoints : null,
+      captainChoices: cs ? cs.captainChoices : {},
+    };
+  });
+
+  // Sort
+  var sorted = data.slice().sort(function (a, b) {
+    var aVal = a[sortKey];
+    var bVal = b[sortKey];
+    // Handle null (loading captain data)
+    if (aVal === null) aVal = -1;
+    if (bVal === null) bVal = -1;
+    if (sortKey === 'player_name') {
+      aVal = (aVal || '').toLowerCase();
+      bVal = (bVal || '').toLowerCase();
+      return sortDir === 'asc' ? (aVal < bVal ? -1 : 1) : (aVal > bVal ? -1 : 1);
+    }
+    return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+
+  var columns = [
+    { key: 'totalBenchPoints', label: 'Bench Pts' },
+    { key: 'totalTransfers', label: 'Transfers' },
+    { key: 'totalHitsCost', label: 'Hits Cost' },
+    { key: 'totalCaptainPoints', label: 'Captain Pts' },
+  ];
+
+  function sortIndicator(key) {
+    if (sortKey !== key) return <span className="sort-icon sort-inactive">&#8597;</span>;
+    return <span className="sort-icon sort-active">{sortDir === 'desc' ? '\u25BC' : '\u25B2'}</span>;
+  }
+
+  var colSpan = 2 + columns.length; // # + Manager + stat columns
+
   return (
     <div className="stats-section">
-      <h2>Bench Points Wasted</h2>
+      <h2>Detailed League Stats</h2>
       <table className="standings-table stats-table">
         <thead>
           <tr>
             <th>#</th>
-            <th>Manager</th>
-            <th className="col-num">Bench Pts</th>
+            <th className="sortable-th" onClick={function () { handleSort('player_name'); }}>
+              Manager {sortIndicator('player_name')}
+            </th>
+            {columns.map(function (col) {
+              return (
+                <th key={col.key} className="col-num sortable-th" onClick={function () { handleSort(col.key); }}>
+                  {col.label} {sortIndicator(col.key)}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
-          {data.map(function (row, i) {
+          {sorted.map(function (row, i) {
             var details = benchDetails ? (benchDetails[row.entry] || []) : [];
+            var choices = row.captainChoices || {};
+            var choiceList = Object.keys(choices).map(function (pid) {
+              return { name: names[pid] || 'Unknown', count: choices[pid].count, points: choices[pid].points };
+            }).sort(function (a, b) { return b.count - a.count; });
+            var hasBenchDetails = details.length > 0;
+            var hasCaptainDetails = choiceList.length > 0;
             var isExpanded = expandedEntry === row.entry;
-            var hasDetails = details.length > 0;
-            var isClickable = loading || hasDetails;
+            var isClickable = loading || hasBenchDetails || hasCaptainDetails;
+
             return React.createElement(React.Fragment, { key: row.entry },
               <tr
                 className={isClickable ? 'expandable-row' : ''}
@@ -456,103 +492,51 @@ function BenchTable(props) {
                   {isClickable ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
                 </td>
                 <td className="col-num">{row.totalBenchPoints}</td>
-              </tr>,
-              isExpanded ? (
-                <tr className="bench-detail-row">
-                  <td colSpan="3">
-                    {loading ? (
-                      <div className="detail-loading">Loading bench details...</div>
-                    ) : hasDetails ? (
-                      <div className="bench-detail-list">
-                        <span className="bench-detail-label">Worst left on bench:</span>
-                        {details.map(function (d, j) {
-                          return (
-                            <span key={j} className="bench-detail-item">
-                              <span className="bench-detail-name">{names[d.element] || 'Unknown'}</span>
-                              <span className="bench-detail-pts">{d.points} pts</span>
-                              <span className="bench-detail-gw">GW{d.gw}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="detail-loading" style={{ animation: 'none', color: '#999' }}>No bench waste details available</div>
-                    )}
-                  </td>
-                </tr>
-              ) : null
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function CaptainTable(props) {
-  var data = props.data;
-  var names = props.playerNames;
-  var loading = props.loading;
-  var [expandedEntry, setExpandedEntry] = React.useState(null);
-
-  function toggleRow(entry) {
-    setExpandedEntry(expandedEntry === entry ? null : entry);
-  }
-
-  return (
-    <div className="stats-section">
-      <h2>Captain Performance</h2>
-      <table className="standings-table stats-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Manager</th>
-            <th className="col-num">Captain Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map(function (row, i) {
-            var isExpanded = expandedEntry === row.entry;
-            var choices = row.captainChoices || {};
-            var choiceList = Object.keys(choices).map(function (pid) {
-              return { name: names[pid] || 'Unknown', count: choices[pid].count, points: choices[pid].points };
-            }).sort(function (a, b) { return b.count - a.count; });
-            var hasDetails = choiceList.length > 0;
-            var isClickable = loading || hasDetails;
-            return React.createElement(React.Fragment, { key: row.entry },
-              <tr
-                className={isClickable ? 'expandable-row' : ''}
-                onClick={isClickable ? function () { toggleRow(row.entry); } : undefined}
-              >
-                <td><RankBadge rank={i + 1} /></td>
-                <td>
-                  {row.player_name}
-                  {isClickable ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
-                </td>
+                <td className="col-num">{row.totalTransfers}</td>
+                <td className="col-num">{row.totalHitsCost}</td>
                 <td className="col-num">
                   {row.totalCaptainPoints !== null ? row.totalCaptainPoints : <span className="value-loading"></span>}
                 </td>
               </tr>,
               isExpanded ? (
                 <tr className="bench-detail-row">
-                  <td colSpan="3">
+                  <td colSpan={colSpan}>
                     {loading ? (
-                      <div className="detail-loading">Loading captain details...</div>
-                    ) : hasDetails ? (
-                      <div className="bench-detail-list">
-                        <span className="bench-detail-label">Captains picked:</span>
-                        {choiceList.map(function (c, j) {
-                          return (
-                            <span key={j} className="bench-detail-item">
-                              <span className="bench-detail-name">{c.name}</span>
-                              <span className="bench-detail-pts">{c.count}x</span>
-                              <span className="bench-detail-gw">{c.points} pts</span>
-                            </span>
-                          );
-                        })}
-                      </div>
+                      <div className="detail-loading">Loading details...</div>
                     ) : (
-                      <div className="detail-loading" style={{ animation: 'none', color: '#999' }}>No captain details available</div>
+                      <div className="detail-sections">
+                        {hasBenchDetails ? (
+                          <div className="bench-detail-list">
+                            <span className="bench-detail-label">Worst left on bench:</span>
+                            {details.map(function (d, j) {
+                              return (
+                                <span key={j} className="bench-detail-item">
+                                  <span className="bench-detail-name">{names[d.element] || 'Unknown'}</span>
+                                  <span className="bench-detail-pts">{d.points} pts</span>
+                                  <span className="bench-detail-gw">GW{d.gw}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                        {hasCaptainDetails ? (
+                          <div className="bench-detail-list">
+                            <span className="bench-detail-label">Captains picked:</span>
+                            {choiceList.map(function (c, j) {
+                              return (
+                                <span key={j} className="bench-detail-item">
+                                  <span className="bench-detail-name">{c.name}</span>
+                                  <span className="bench-detail-pts">{c.count}x</span>
+                                  <span className="bench-detail-gw">{c.points} pts</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                        {!hasBenchDetails && !hasCaptainDetails ? (
+                          <div className="detail-loading" style={{ animation: 'none', color: '#999' }}>No details available</div>
+                        ) : null}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -787,10 +771,8 @@ function LeagueStats(props) {
     return <p className="error-message">{statsError}</p>;
   }
 
-  // Phase 1 data ready - show chart, bench totals, hits
+  // Phase 1 data ready - show chart + unified stats table
   var managers = historyData.managers;
-  var benchSorted = managers.slice().sort(function (a, b) { return b.totalBenchPoints - a.totalBenchPoints; });
-  var hitsSorted = managers.slice().sort(function (a, b) { return b.totalHitsCost - a.totalHitsCost; });
 
   // Summary KPI values
   var totalManagers = managers.length;
@@ -799,25 +781,8 @@ function LeagueStats(props) {
   var totalHitsCost = managers.reduce(function (s, m) { return s + m.totalHitsCost; }, 0);
 
   // Phase 2 data - captain stats + bench details (may still be loading)
-  var captainSorted = null;
-  var benchDetails = null;
-  if (picksData) {
-    benchDetails = picksData.benchDetails;
-    captainSorted = managers.map(function (m) {
-      var cs = picksData.captainStats[m.entry];
-      return {
-        entry: m.entry,
-        player_name: m.player_name,
-        totalCaptainPoints: cs.totalCaptainPoints,
-        captainChoices: cs.captainChoices,
-      };
-    }).sort(function (a, b) { return b.totalCaptainPoints - a.totalCaptainPoints; });
-  }
-
-  // Placeholder captain data while phase 2 loads
-  var captainData = captainSorted || managers.map(function (m) {
-    return { entry: m.entry, player_name: m.player_name, totalCaptainPoints: null, captainChoices: {} };
-  });
+  var captainStats = picksData ? picksData.captainStats : null;
+  var benchDetails = picksData ? picksData.benchDetails : null;
 
   return (
     <div className="stats-dashboard">
@@ -844,31 +809,19 @@ function LeagueStats(props) {
         <PointsChart managers={managers} />
       </div>
 
-      <div className="stats-grid">
-        <BenchTable
-          data={benchSorted}
-          benchDetails={benchDetails}
-          playerNames={resolvedNames}
-          loading={phase2Loading}
-        />
-
-        <StatsTable
-          title="Transfer Hits & Activity"
-          data={hitsSorted}
-          columns={[
-            { key: 'totalTransfers', label: 'Transfers' },
-            { key: 'totalHitsCost', label: 'Hits Cost' },
-          ]}
-        />
-      </div>
-
       {phase2Loading ? (
         <div style={{ marginBottom: '0.5rem' }}>
           <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
         </div>
       ) : null}
 
-      <CaptainTable data={captainData} playerNames={resolvedNames} loading={phase2Loading} />
+      <LeagueStatsTable
+        managers={managers}
+        captainStats={captainStats}
+        benchDetails={benchDetails}
+        playerNames={resolvedNames}
+        loading={phase2Loading}
+      />
     </div>
   );
 }

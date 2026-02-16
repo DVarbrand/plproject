@@ -414,19 +414,7 @@ body {
   transform: translateY(-1px);
 }
 
-/* === Stats Grid === */
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin: 0 auto 16px;
-}
-
 @media (max-width: 900px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
   .summary-row {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -434,6 +422,32 @@ body {
 
 .stats-table {
   width: 100%;
+}
+
+/* === Sortable Headers === */
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.sortable-th:hover {
+  color: var(--color-blue-500);
+}
+
+.sort-icon {
+  font-size: 0.6rem;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+.sort-inactive {
+  color: var(--color-slate-300);
+}
+
+.sort-active {
+  color: var(--color-blue-500);
 }
 
 /* === Expandable Row Affordance === */
@@ -529,6 +543,14 @@ body {
 .bench-detail-gw {
   color: var(--color-slate-400);
   font-size: 0.7rem;
+}
+
+/* === Detail Sections (combined bench + captain) === */
+
+.detail-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* === Loading Shimmer === */
