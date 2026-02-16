@@ -559,7 +559,7 @@ function LeagueStatsTable(props) {
     return <span className="sort-icon sort-active">{sortDir === 'desc' ? '\u25BC' : '\u25B2'}</span>;
   }
 
-  var colSpan = 4 + statColumns.length; // # + Manager + Team + Points + stat columns
+  var colSpan = 5 + (statsReady ? statColumns.length : 0); // expand + # + Manager + Team + Points + stat columns
 
   return (
     <div className="stat-card" style={{ marginBottom: 20 }}>
@@ -568,6 +568,7 @@ function LeagueStatsTable(props) {
       <table className="standings-table stats-table">
         <thead>
           <tr>
+            <th className="col-expand"></th>
             <th>#</th>
             <th className="sortable-th" onClick={function () { handleSort('player_name'); }}>
               Manager {sortIndicator('player_name')}
@@ -604,11 +605,11 @@ function LeagueStatsTable(props) {
                 className={isClickable ? 'expandable-row' : ''}
                 onClick={isClickable ? function () { toggleRow(row.entry); } : undefined}
               >
-                <td><RankBadge rank={row.rank || (i + 1)} /></td>
-                <td>
-                  {row.player_name}
+                <td className="col-expand">
                   {isClickable ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
                 </td>
+                <td><RankBadge rank={row.rank || (i + 1)} /></td>
+                <td>{row.player_name}</td>
                 <td>{row.entry_name}</td>
                 <td className="col-num"><span className="points-value">{row.total}</span></td>
                 {statsReady ? (
@@ -1129,7 +1130,7 @@ function App() {
       <LandscapeOverlay />
       <header className="app-header">
         <div className="header-logo">FPL</div>
-        <h1>FPL League Hub</h1>
+        <h1>FPL Data</h1>
         <span className="header-badge">2025/26</span>
       </header>
       <main className="app-content">
@@ -1180,7 +1181,7 @@ function App() {
         )}
       </main>
       <footer className="app-footer">
-        <p>FPL League Hub - Not affiliated with the Premier League</p>
+        <p>FPL Data - Not affiliated with the Premier League</p>
       </footer>
     </div>
   );
