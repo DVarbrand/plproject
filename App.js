@@ -272,7 +272,14 @@ function PointsChart(props) {
           responsive: true,
           animation: { duration: 300 },
           plugins: {
-            title: { display: true, text: 'League Position Over Time', font: { size: 14, weight: 600 }, color: '#1e293b' },
+            title: {
+              display: true,
+              text: props.hasMore
+                ? 'Position Over Time (among ' + managersWithHistory.length + ' loaded managers)'
+                : 'League Position Over Time',
+              font: { size: 14, weight: 600 },
+              color: props.hasMore ? '#f59e0b' : '#1e293b',
+            },
             legend: {
               position: 'bottom',
               labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' },
@@ -357,6 +364,11 @@ function PointsChart(props) {
           <span className="chart-hint">Click names in the legend to focus</span>
         )}
       </div>
+      {mode === 'rank' && props.hasMore ? (
+        <div className="chart-warning">
+          Rank is calculated among the {managersWithHistory.length} loaded managers only. Load all managers from the standings table for accurate league-wide ranking.
+        </div>
+      ) : null}
       <canvas ref={canvasRef}></canvas>
       <div className="gw-slider-container">
         <div className="gw-slider-track" ref={sliderRef}
@@ -887,7 +899,7 @@ function LeagueStats(props) {
       </div>
 
       <div className="chart-container">
-        <PointsChart managers={managers} />
+        <PointsChart managers={managers} hasMore={props.hasMore} />
       </div>
 
       {phase2Loading ? (
@@ -1094,7 +1106,7 @@ function App() {
                 </div>
               ) : null}
             </div>
-            <LeagueStats key={standings.length} standings={standings} playerNames={playerNames} />
+            <LeagueStats key={standings.length} standings={standings} playerNames={playerNames} hasMore={hasMore} />
           </div>
         ) : (
           <div className="empty-state">
