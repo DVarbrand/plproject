@@ -394,23 +394,6 @@ body {
 .stats-section.transfers-section h2::before { background: var(--color-green-500); }
 .stats-section.captain-section h2::before { background: var(--color-blue-500); }
 
-/* === Stats Button === */
-
-.stats-button {
-  margin-top: 8px;
-  font-size: 0.9rem;
-  padding: 12px 28px;
-  background: var(--color-blue-500);
-  color: var(--color-white);
-  font-weight: 600;
-  border-radius: var(--radius-md);
-}
-
-.stats-button:hover {
-  background: var(--color-blue-600);
-  transform: translateY(-1px);
-}
-
 @media (max-width: 900px) {
   .summary-row {
     grid-template-columns: repeat(2, 1fr);
