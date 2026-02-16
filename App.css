@@ -373,6 +373,10 @@ body {
   min-width: 0;
 }
 
+.stats-loading-bar {
+  margin-bottom: 12px;
+}
+
 .stats-section {
   margin: 0 auto 20px;
   max-width: 100%;
