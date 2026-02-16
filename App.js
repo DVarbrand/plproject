@@ -969,7 +969,13 @@ function App() {
   var [loadingMore, setLoadingMore] = React.useState(false);
 
   function fetchLeague(id) {
-    if (!id.trim()) return;
+    var trimmed = (id || '').trim();
+    if (!trimmed) return;
+
+    if (!/^\d+$/.test(trimmed)) {
+      setError('Please enter a valid numeric league ID.');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -977,20 +983,23 @@ function App() {
     setCurrentPage(1);
     setHasMore(false);
 
-    fetch('/api/standings/' + id.trim())
+    fetch('/api/standings/' + trimmed)
       .then(function (r) {
         if (!r.ok) throw new Error('API request failed with status ' + r.status);
         return r.json();
       })
       .then(function (data) {
+        if (!data || !data.standings || !Array.isArray(data.standings.results)) {
+          throw new Error('Unexpected API response format');
+        }
         setStandings(data.standings.results);
-        setHasMore(data.standings.has_next);
+        setHasMore(!!data.standings.has_next);
         setLeagueName(data.league ? data.league.name : '');
         setLoading(false);
 
         // Update URL without reload
         var url = new URL(window.location);
-        url.searchParams.set('leagueId', id.trim());
+        url.searchParams.set('leagueId', trimmed);
         window.history.pushState({}, '', url);
 
         // Load player names + current GW in background
@@ -1008,14 +1017,14 @@ function App() {
       })
       .catch(function (err) {
         console.error('Error fetching data:', err);
-        setError('Failed to load standings. Check the league ID and try again.');
+        setError('Failed to load standings: ' + err.message);
         setLoading(false);
       });
   }
 
   function loadMoreManagers() {
     var nextPage = currentPage + 1;
-    var id = leagueId.trim();
+    var id = (leagueId || '').trim();
     if (!id || loadingMore) return;
 
     setLoadingMore(true);
@@ -1025,8 +1034,11 @@ function App() {
         return r.json();
       })
       .then(function (data) {
+        if (!data || !data.standings || !Array.isArray(data.standings.results)) {
+          throw new Error('Unexpected API response format');
+        }
         setStandings(function (prev) { return prev.concat(data.standings.results); });
-        setHasMore(data.standings.has_next);
+        setHasMore(!!data.standings.has_next);
         setCurrentPage(nextPage);
         setLoadingMore(false);
       })
