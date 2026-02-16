@@ -1094,10 +1094,217 @@ function LeagueStats(props) {
     }
   }
 
-  // Auto-load stats on mount
+  async function loadIncrementalStats(newStandings) {
+    setPhase1Loading(true);
+    setProgress(0);
+
+    try {
+      var newManagerIds = newStandings.map(function (s) { return s.entry; });
+
+      setProgressLabel('Fetching new manager histories...');
+      var historyPaths = newManagerIds.map(function (id) { return 'entry/' + id + '/history'; });
+      var histories = await batchFetch(historyPaths, 5, function (done, total) {
+        setProgress(Math.round((done / total) * 30));
+      }, 3);
+
+      var newManagerData = newStandings.map(function (s, i) {
+        var h = histories[i];
+        var history = (h && h.current) ? h.current : [];
+        var chips = (h && h.chips) ? h.chips : [];
+        var totalBenchPoints = history.reduce(function (sum, gw) { return sum + (gw.points_on_bench || 0); }, 0);
+        var totalHitsCost = history.reduce(function (sum, gw) { return sum + (gw.event_transfers_cost || 0); }, 0);
+        var totalTransfers = history.reduce(function (sum, gw) { return sum + (gw.event_transfers || 0); }, 0);
+        return {
+          entry: s.entry,
+          player_name: s.player_name,
+          entry_name: s.entry_name,
+          total: s.total,
+          rank: s.rank,
+          history: history,
+          chips: chips,
+          totalBenchPoints: totalBenchPoints,
+          totalHitsCost: totalHitsCost,
+          totalTransfers: totalTransfers,
+        };
+      });
+
+      setHistoryData(function (prev) {
+        return { managers: prev.managers.concat(newManagerData) };
+      });
+      setPhase1Loading(false);
+
+      // Phase 2: picks for new managers
+      setPhase2Loading(true);
+      var firstWithHistory = newManagerData.find(function (m) { return m.history.length > 0; });
+      if (!firstWithHistory && historyData) {
+        firstWithHistory = historyData.managers.find(function (m) { return m.history.length > 0; });
+      }
+      var completedEvents = firstWithHistory ? firstWithHistory.history.map(function (h) { return h.event; }) : [];
+
+      var newCaptainResults = {};
+      var newBenchDetails = {};
+      var newCaptainAnalysis = {};
+      newManagerIds.forEach(function (id) {
+        newCaptainResults[id] = { totalCaptainPoints: 0, captainChoices: {}, gwCount: 0 };
+        newBenchDetails[id] = [];
+        newCaptainAnalysis[id] = { correctOwn: 0, correctOverall: 0, totalGws: 0, gwDetails: [] };
+      });
+
+      if (completedEvents.length > 0) {
+        setProgressLabel('Fetching gameweek data...');
+        var livePaths = completedEvents.map(function (gw) { return 'event/' + gw + '/live'; });
+        var liveResults = await batchFetch(livePaths, 10, function (done, total) {
+          setProgress(30 + Math.round((done / total) * 20));
+        }, 3);
+
+        var liveData = {};
+        completedEvents.forEach(function (gw, i) {
+          if (!liveResults[i] || !liveResults[i].elements) return;
+          var gwData = {};
+          liveResults[i].elements.forEach(function (el) {
+            gwData[el.id] = el.stats.total_points;
+          });
+          liveData[gw] = gwData;
+        });
+
+        var gwTopScorer = {};
+        completedEvents.forEach(function (gw) {
+          if (!liveData[gw]) return;
+          var bestId = null;
+          var bestPts = -1;
+          Object.keys(liveData[gw]).forEach(function (pid) {
+            if (liveData[gw][pid] > bestPts) {
+              bestPts = liveData[gw][pid];
+              bestId = parseInt(pid, 10);
+            }
+          });
+          gwTopScorer[gw] = { element: bestId, points: bestPts };
+        });
+
+        setProgressLabel('Fetching picks data...');
+        var allPickPaths = [];
+        var allPickMeta = [];
+        newManagerIds.forEach(function (id) {
+          completedEvents.forEach(function (gw) {
+            allPickPaths.push('entry/' + id + '/event/' + gw + '/picks');
+            allPickMeta.push({ managerId: id, gw: gw });
+          });
+        });
+
+        var pickResults = await batchFetch(allPickPaths, 10, function (done, total) {
+          setProgress(50 + Math.round((done / total) * 50));
+        }, 3);
+
+        pickResults.forEach(function (pickData, idx) {
+          if (!pickData || !pickData.picks) return;
+          var meta = allPickMeta[idx];
+
+          var captain = pickData.picks.find(function (p) { return p.is_captain; });
+          if (captain && liveData[meta.gw]) {
+            var captainRawPts = liveData[meta.gw][captain.element] || 0;
+            var points = captainRawPts * captain.multiplier;
+            newCaptainResults[meta.managerId].totalCaptainPoints += points;
+            newCaptainResults[meta.managerId].gwCount++;
+            var playerId = captain.element;
+            if (!newCaptainResults[meta.managerId].captainChoices[playerId]) {
+              newCaptainResults[meta.managerId].captainChoices[playerId] = { count: 0, points: 0 };
+            }
+            newCaptainResults[meta.managerId].captainChoices[playerId].count++;
+            newCaptainResults[meta.managerId].captainChoices[playerId].points += points;
+
+            var bestOwnId = captain.element;
+            var bestOwnPts = captainRawPts;
+            pickData.picks.forEach(function (pick) {
+              if (pick.position <= 11) {
+                var pts = liveData[meta.gw][pick.element] || 0;
+                if (pts > bestOwnPts) {
+                  bestOwnPts = pts;
+                  bestOwnId = pick.element;
+                }
+              }
+            });
+
+            var top = gwTopScorer[meta.gw] || { element: null, points: 0 };
+            var isCorrectOwn = captainRawPts >= bestOwnPts;
+            var isCorrectOverall = captainRawPts >= top.points;
+
+            var ca = newCaptainAnalysis[meta.managerId];
+            ca.totalGws++;
+            if (isCorrectOwn) ca.correctOwn++;
+            if (isCorrectOverall) ca.correctOverall++;
+            ca.gwDetails.push({
+              gw: meta.gw,
+              captainId: captain.element,
+              captainPoints: captainRawPts,
+              bestOwnId: bestOwnId,
+              bestOwnPoints: bestOwnPts,
+              topScorerId: top.element,
+              topScorerPoints: top.points,
+              isCorrectOwn: isCorrectOwn,
+              isCorrectOverall: isCorrectOverall,
+            });
+          }
+
+          if (liveData[meta.gw]) {
+            pickData.picks.forEach(function (pick) {
+              if (pick.position >= 12) {
+                var benchPts = liveData[meta.gw][pick.element] || 0;
+                if (benchPts > 0) {
+                  newBenchDetails[meta.managerId].push({
+                    element: pick.element,
+                    points: benchPts,
+                    gw: meta.gw,
+                  });
+                }
+              }
+            });
+          }
+        });
+
+        newManagerIds.forEach(function (id) {
+          newBenchDetails[id].sort(function (a, b) { return b.points - a.points; });
+          newBenchDetails[id] = newBenchDetails[id].slice(0, 3);
+        });
+      }
+
+      setPicksData(function (prev) {
+        if (!prev) return { captainStats: newCaptainResults, benchDetails: newBenchDetails, captainAnalysis: newCaptainAnalysis };
+        return {
+          captainStats: Object.assign({}, prev.captainStats, newCaptainResults),
+          benchDetails: Object.assign({}, prev.benchDetails, newBenchDetails),
+          captainAnalysis: Object.assign({}, prev.captainAnalysis, newCaptainAnalysis),
+        };
+      });
+
+      setProgress(100);
+      setProgressLabel('');
+      setPhase2Loading(false);
+    } catch (err) {
+      console.error('Incremental stats error:', err);
+      setStatsError('Failed to load stats for new managers: ' + err.message);
+      setPhase1Loading(false);
+      setPhase2Loading(false);
+    }
+  }
+
+  var prevStandingsLenRef = React.useRef(null);
+
+  // Auto-load stats on mount, incremental load when new managers added
   React.useEffect(function () {
-    if (standings.length > 0) loadAllStats();
-  }, []);
+    if (standings.length === 0) return;
+
+    var prevLen = prevStandingsLenRef.current;
+    prevStandingsLenRef.current = standings.length;
+
+    if (prevLen === null) {
+      // Initial load
+      loadAllStats();
+    } else if (standings.length > prevLen && historyData) {
+      // New managers appended - fetch their data incrementally
+      var newStandings = standings.slice(prevLen);
+      loadIncrementalStats(newStandings);
+    }
+  }, [standings.length]);
 
   // Build managers list: use historyData if available, otherwise standings-only
   var managers = historyData ? historyData.managers : standings.map(function (s) {
@@ -1185,7 +1392,7 @@ function LeagueStats(props) {
 
       {captainAnalysis ? (
         <CaptainAnalysisTable
-          standings={standings}
+          standings={managers}
           captainAnalysis={captainAnalysis}
           playerNames={resolvedNames}
         />
