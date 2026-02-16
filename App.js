@@ -358,10 +358,12 @@ function PointsChart(props) {
           <button
             className={'chart-toggle-btn' + (mode === 'relative' ? ' active' : '')}
             onClick={function () { setMode('relative'); }}
+            data-umami-event="chart-mode-points"
           >Points</button>
           <button
             className={'chart-toggle-btn' + (mode === 'rank' ? ' active' : '')}
             onClick={function () { setMode('rank'); }}
+            data-umami-event="chart-mode-rank"
           >Rank</button>
         </div>
 
@@ -374,6 +376,7 @@ function PointsChart(props) {
                   key={opt.value}
                   className={'chart-filter-btn' + (topN === opt.value ? ' active' : '')}
                   onClick={function () { setTopN(opt.value); clearFocus(); }}
+                  data-umami-event={'chart-filter-' + opt.label.toLowerCase().replace(/\s+/g, '-')}
                 >{opt.label}</button>
               );
             })}
@@ -382,7 +385,7 @@ function PointsChart(props) {
         </div>
 
         {hasFocus ? (
-          <button className="chart-clear-focus" onClick={clearFocus}>
+          <button className="chart-clear-focus" onClick={clearFocus} data-umami-event="chart-clear-focus">
             Clear focus ({Object.keys(focusedSet).length})
           </button>
         ) : (
@@ -622,6 +625,7 @@ function LeagueStatsTable(props) {
               <tr
                 className={isClickable ? 'expandable-row' : ''}
                 onClick={isClickable ? function () { toggleRow(row.entry); } : undefined}
+                data-umami-event="expand-league-row"
               >
                 <td className="col-expand">
                   {isClickable ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
@@ -691,7 +695,7 @@ function LeagueStatsTable(props) {
       </div>
       {hasMore ? (
         <div className="load-more-container">
-          <button className="league-button load-more-btn" onClick={onLoadMore} disabled={loadingMore}>
+          <button className="league-button load-more-btn" onClick={onLoadMore} disabled={loadingMore} data-umami-event="load-more-managers">
             {loadingMore ? 'Loading...' : 'Load more managers...'}
           </button>
           <span className="load-more-count">Showing {totalShowing} managers</span>
@@ -804,6 +808,7 @@ function CaptainAnalysisTable(props) {
               <tr
                 className={hasDetails ? 'expandable-row' : ''}
                 onClick={hasDetails ? function () { toggleRow(row.entry); } : undefined}
+                data-umami-event="expand-captain-row"
               >
                 <td className="col-expand">
                   {hasDetails ? <span className={'expand-icon' + (isExpanded ? ' expanded' : '')}>&#9662;</span> : null}
@@ -1440,7 +1445,7 @@ function LandscapeOverlay() {
           </svg>
         </div>
         <p className="landscape-overlay-text">Rotate your device for the best experience</p>
-        <button className="landscape-overlay-dismiss" onClick={function () { setDismissed(true); }}>
+        <button className="landscape-overlay-dismiss" onClick={function () { setDismissed(true); }} data-umami-event="dismiss-landscape-prompt">
           Continue anyway
         </button>
       </div>
@@ -1583,11 +1588,11 @@ function App() {
             value={leagueId}
             onChange={function (e) { setLeagueId(e.target.value); }}
           />
-          <button type="submit" className="league-button" disabled={loading}>
+          <button type="submit" className="league-button" disabled={loading} data-umami-event="fetch-standings">
             {loading ? 'Loading...' : 'Fetch Standings'}
           </button>
           {standings.length > 0 ? (
-            <button type="button" className="league-button share-button" onClick={function () {
+            <button type="button" className="league-button share-button" data-umami-event="share-link" onClick={function () {
               navigator.clipboard.writeText(window.location.href).then(function () {
                 var btn = document.querySelector('.share-button');
                 var orig = btn.innerHTML;
