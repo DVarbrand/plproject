@@ -103,13 +103,6 @@ body {
   font-weight: 600;
 }
 
-.app-header .subtitle {
-  font-size: 0.75rem;
-  color: var(--color-slate-400);
-  font-weight: 500;
-  margin-left: auto;
-}
-
 /* === Main Content === */
 
 .app-content {
@@ -176,9 +169,23 @@ body {
   transform: none;
 }
 
-.url-hint {
-  font-size: 0.75rem;
-  color: var(--color-slate-400);
+.share-button {
+  background: var(--color-slate-100);
+  border: 1px solid var(--color-slate-200);
+  color: var(--color-slate-600);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.share-button:hover {
+  background: var(--color-blue-500);
+  color: white;
+  border-color: var(--color-blue-500);
 }
 
 /* === Empty State === */
@@ -808,10 +815,6 @@ body {
     font-size: 1rem;
   }
 
-  .app-header .subtitle {
-    display: none;
-  }
-
   .app-content {
     padding: 16px;
   }
@@ -823,10 +826,6 @@ body {
   .league-form {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .url-hint {
-    display: none;
   }
 
   .summary-row {
