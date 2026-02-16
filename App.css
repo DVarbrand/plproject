@@ -169,23 +169,12 @@ body {
   transform: none;
 }
 
-.share-button {
-  background: var(--color-slate-100);
-  border: 1px solid var(--color-slate-200);
-  color: var(--color-slate-600);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-  margin-left: 8px;
-}
-
-.share-button:hover {
-  background: var(--color-blue-500);
-  color: white;
-  border-color: var(--color-blue-500);
+.league-name {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-slate-800);
+  margin: 1.5rem 0 1rem;
 }
 
 /* === Empty State === */
