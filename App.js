@@ -96,46 +96,284 @@ var CHART_COLORS = [
 function PointsChart(props) {
   var canvasRef = React.useRef(null);
   var chartRef = React.useRef(null);
+  var [mode, setMode] = React.useState('relative'); // 'relative' or 'rank'
+  var [topN, setTopN] = React.useState(0); // 0 = all
+  var [gwRange, setGwRange] = React.useState([1, 38]);
+  var [focusedIndex, setFocusedIndex] = React.useState(null);
+  var [maxGw, setMaxGw] = React.useState(38);
 
+  var managersWithHistory = (props.managers || []).filter(function (m) { return m.history.length > 0; });
+
+  // Compute max GW on data change
   React.useEffect(function () {
-    if (!props.managers || !canvasRef.current) return;
-    var managersWithHistory = props.managers.filter(function (m) { return m.history.length > 0; });
     if (managersWithHistory.length === 0) return;
-    if (chartRef.current) chartRef.current.destroy();
-
-    var labels = managersWithHistory[0].history.map(function (h) { return 'GW' + h.event; });
-    var datasets = managersWithHistory.map(function (m, i) {
-      return {
-        label: m.player_name,
-        data: m.history.map(function (h) { return h.total_points; }),
-        borderColor: CHART_COLORS[i % CHART_COLORS.length],
-        backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-        fill: false,
-        tension: 0.2,
-        pointRadius: 2,
-      };
+    var gwCount = managersWithHistory[0].history.length;
+    setMaxGw(gwCount);
+    setGwRange(function (prev) {
+      return [1, gwCount];
     });
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'line',
-      data: { labels: labels, datasets: datasets },
-      options: {
-        responsive: true,
-        plugins: {
-          title: { display: true, text: 'Points Trajectory', font: { size: 14, weight: 600 }, color: '#1e293b' },
-          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' } },
-        },
-        scales: {
-          y: { title: { display: true, text: 'Total Points', color: '#64748b' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(0,0,0,0.06)' } },
-          x: { title: { display: true, text: 'Gameweek', color: '#64748b' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(0,0,0,0.06)' } },
-        },
-      },
-    });
-
-    return function () { if (chartRef.current) chartRef.current.destroy(); };
   }, [props.managers]);
 
-  return <canvas ref={canvasRef}></canvas>;
+  // Build + render chart
+  React.useEffect(function () {
+    if (managersWithHistory.length === 0 || !canvasRef.current) return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    var allHistory = managersWithHistory[0].history;
+    var gwStart = gwRange[0];
+    var gwEnd = gwRange[1];
+
+    // Filter GW range
+    var gwIndices = [];
+    allHistory.forEach(function (h, idx) {
+      var gwNum = h.event;
+      if (gwNum >= gwStart && gwNum <= gwEnd) gwIndices.push(idx);
+    });
+    if (gwIndices.length === 0) return;
+
+    var labels = gwIndices.map(function (idx) { return 'GW' + allHistory[idx].event; });
+
+    // Determine which managers to show (top N by current total points)
+    var sortedManagers = managersWithHistory.slice().sort(function (a, b) { return b.total - a.total; });
+    var visibleManagers = topN > 0 ? sortedManagers.slice(0, topN) : sortedManagers;
+    // Keep original index for color assignment
+    var visibleSet = {};
+    visibleManagers.forEach(function (m) { visibleSet[m.entry] = true; });
+
+    if (mode === 'relative') {
+      // Compute league average per GW (cumulative total_points)
+      var avgPerGw = gwIndices.map(function (gwIdx) {
+        var sum = 0;
+        managersWithHistory.forEach(function (m) { sum += m.history[gwIdx].total_points; });
+        return sum / managersWithHistory.length;
+      });
+
+      var datasets = managersWithHistory.map(function (m, origIdx) {
+        if (!visibleSet[m.entry]) return null;
+        var data = gwIndices.map(function (gwIdx, j) {
+          return Math.round(m.history[gwIdx].total_points - avgPerGw[j]);
+        });
+        var isFocused = focusedIndex === null || focusedIndex === origIdx;
+        return {
+          label: m.player_name,
+          data: data,
+          borderColor: CHART_COLORS[origIdx % CHART_COLORS.length],
+          backgroundColor: CHART_COLORS[origIdx % CHART_COLORS.length],
+          fill: false,
+          tension: 0.2,
+          pointRadius: isFocused ? 2 : 0,
+          borderWidth: isFocused ? 2.5 : 1,
+          borderDash: isFocused ? [] : [],
+          hidden: false,
+          _origIdx: origIdx,
+        };
+      }).filter(Boolean);
+
+      // Apply focus opacity via borderColor alpha
+      if (focusedIndex !== null) {
+        datasets.forEach(function (ds) {
+          if (ds._origIdx !== focusedIndex) {
+            ds.borderColor = ds.borderColor + '25';
+            ds.backgroundColor = ds.backgroundColor + '25';
+          }
+        });
+      }
+
+      chartRef.current = new Chart(canvasRef.current, {
+        type: 'line',
+        data: { labels: labels, datasets: datasets },
+        options: {
+          responsive: true,
+          animation: { duration: 300 },
+          plugins: {
+            title: { display: true, text: 'Points vs League Average', font: { size: 14, weight: 600 }, color: '#1e293b' },
+            legend: {
+              position: 'bottom',
+              labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' },
+              onClick: function (e, legendItem, legend) {
+                var idx = managersWithHistory.findIndex(function (m) { return m.player_name === legendItem.text; });
+                setFocusedIndex(function (prev) { return prev === idx ? null : idx; });
+              },
+            },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  var val = ctx.parsed.y;
+                  return ctx.dataset.label + ': ' + (val >= 0 ? '+' : '') + val + ' pts';
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              title: { display: true, text: 'Points vs Average', color: '#64748b' },
+              ticks: { color: '#94a3b8', callback: function (v) { return (v >= 0 ? '+' : '') + v; } },
+              grid: { color: function (ctx) { return ctx.tick.value === 0 ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.06)'; } },
+            },
+            x: { title: { display: true, text: 'Gameweek', color: '#64748b' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+          },
+        },
+      });
+    } else {
+      // Rank mode: compute rank per GW
+      var rankData = {};
+      managersWithHistory.forEach(function (m) { rankData[m.entry] = []; });
+
+      gwIndices.forEach(function (gwIdx) {
+        var gwScores = managersWithHistory.map(function (m) {
+          return { entry: m.entry, pts: m.history[gwIdx].total_points };
+        }).sort(function (a, b) { return b.pts - a.pts; });
+        gwScores.forEach(function (s, rank) { rankData[s.entry].push(rank + 1); });
+      });
+
+      var datasets = managersWithHistory.map(function (m, origIdx) {
+        if (!visibleSet[m.entry]) return null;
+        var isFocused = focusedIndex === null || focusedIndex === origIdx;
+        return {
+          label: m.player_name,
+          data: rankData[m.entry],
+          borderColor: CHART_COLORS[origIdx % CHART_COLORS.length],
+          backgroundColor: CHART_COLORS[origIdx % CHART_COLORS.length],
+          fill: false,
+          tension: 0.2,
+          pointRadius: isFocused ? 2 : 0,
+          borderWidth: isFocused ? 2.5 : 1,
+          _origIdx: origIdx,
+        };
+      }).filter(Boolean);
+
+      if (focusedIndex !== null) {
+        datasets.forEach(function (ds) {
+          if (ds._origIdx !== focusedIndex) {
+            ds.borderColor = ds.borderColor + '25';
+            ds.backgroundColor = ds.backgroundColor + '25';
+          }
+        });
+      }
+
+      chartRef.current = new Chart(canvasRef.current, {
+        type: 'line',
+        data: { labels: labels, datasets: datasets },
+        options: {
+          responsive: true,
+          animation: { duration: 300 },
+          plugins: {
+            title: { display: true, text: 'League Position Over Time', font: { size: 14, weight: 600 }, color: '#1e293b' },
+            legend: {
+              position: 'bottom',
+              labels: { boxWidth: 12, font: { size: 11 }, color: '#64748b' },
+              onClick: function (e, legendItem, legend) {
+                var idx = managersWithHistory.findIndex(function (m) { return m.player_name === legendItem.text; });
+                setFocusedIndex(function (prev) { return prev === idx ? null : idx; });
+              },
+            },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  return ctx.dataset.label + ': #' + ctx.parsed.y;
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              reverse: true,
+              min: 1,
+              max: managersWithHistory.length,
+              title: { display: true, text: 'Position', color: '#64748b' },
+              ticks: {
+                color: '#94a3b8',
+                stepSize: 1,
+                callback: function (v) { return '#' + v; },
+              },
+              grid: { color: 'rgba(0,0,0,0.06)' },
+            },
+            x: { title: { display: true, text: 'Gameweek', color: '#64748b' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+          },
+        },
+      });
+    }
+
+    return function () { if (chartRef.current) chartRef.current.destroy(); };
+  }, [props.managers, mode, topN, gwRange, focusedIndex]);
+
+  if (managersWithHistory.length === 0) return null;
+
+  var topNOptions = [
+    { label: 'All', value: 0 },
+    { label: 'Top 5', value: 5 },
+    { label: 'Top 10', value: 10 },
+  ];
+
+  return (
+    <div>
+      <div className="chart-controls">
+        <div className="chart-toggle">
+          <button
+            className={'chart-toggle-btn' + (mode === 'relative' ? ' active' : '')}
+            onClick={function () { setMode('relative'); setFocusedIndex(null); }}
+          >Points</button>
+          <button
+            className={'chart-toggle-btn' + (mode === 'rank' ? ' active' : '')}
+            onClick={function () { setMode('rank'); setFocusedIndex(null); }}
+          >Rank</button>
+        </div>
+
+        <div className="chart-filters">
+          <div className="chart-filter-group">
+            <span className="chart-filter-label">Show:</span>
+            {topNOptions.map(function (opt) {
+              return (
+                <button
+                  key={opt.value}
+                  className={'chart-filter-btn' + (topN === opt.value ? ' active' : '')}
+                  onClick={function () { setTopN(opt.value); setFocusedIndex(null); }}
+                >{opt.label}</button>
+              );
+            })}
+          </div>
+
+          <div className="chart-filter-group">
+            <span className="chart-filter-label">GW Range:</span>
+            <select
+              className="chart-select"
+              value={gwRange[0]}
+              onChange={function (e) {
+                var v = parseInt(e.target.value, 10);
+                setGwRange(function (prev) { return [v, Math.max(v, prev[1])]; });
+              }}
+            >
+              {Array.from({ length: maxGw }, function (_, i) { return i + 1; }).map(function (gw) {
+                return <option key={gw} value={gw}>GW{gw}</option>;
+              })}
+            </select>
+            <span className="chart-filter-sep">&ndash;</span>
+            <select
+              className="chart-select"
+              value={gwRange[1]}
+              onChange={function (e) {
+                var v = parseInt(e.target.value, 10);
+                setGwRange(function (prev) { return [Math.min(prev[0], v), v]; });
+              }}
+            >
+              {Array.from({ length: maxGw }, function (_, i) { return i + 1; }).map(function (gw) {
+                return <option key={gw} value={gw}>GW{gw}</option>;
+              })}
+            </select>
+          </div>
+        </div>
+
+        {focusedIndex !== null ? (
+          <button className="chart-clear-focus" onClick={function () { setFocusedIndex(null); }}>
+            Clear focus
+          </button>
+        ) : (
+          <span className="chart-hint">Click a name in the legend to focus</span>
+        )}
+      </div>
+      <canvas ref={canvasRef}></canvas>
+    </div>
+  );
 }
 
 function RankBadge(props) {
