@@ -929,6 +929,25 @@ function LeagueStats(props) {
         </div>
       ) : null}
 
+      <LeagueStatsTable
+        managers={managers}
+        captainStats={captainStats}
+        benchDetails={benchDetails}
+        playerNames={resolvedNames}
+        loading={phase2Loading}
+        statsReady={statsReady}
+        hasMore={props.hasMore}
+        onLoadMore={props.onLoadMore}
+        loadingMore={props.loadingMore}
+        totalShowing={props.totalShowing}
+      />
+
+      {phase2Loading ? (
+        <div style={{ marginBottom: '0.5rem' }}>
+          <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
+        </div>
+      ) : null}
+
       {statsReady ? (
         <div className="summary-row">
           <div className="summary-item">
@@ -955,25 +974,6 @@ function LeagueStats(props) {
           <PointsChart managers={managers} hasMore={props.hasMore} />
         </div>
       ) : null}
-
-      {phase2Loading ? (
-        <div style={{ marginBottom: '0.5rem' }}>
-          <ProgressBar percent={progress} label={progressLabel ? progressLabel + ' ' + Math.round(progress) + '%' : null} />
-        </div>
-      ) : null}
-
-      <LeagueStatsTable
-        managers={managers}
-        captainStats={captainStats}
-        benchDetails={benchDetails}
-        playerNames={resolvedNames}
-        loading={phase2Loading}
-        statsReady={statsReady}
-        hasMore={props.hasMore}
-        onLoadMore={props.onLoadMore}
-        loadingMore={props.loadingMore}
-        totalShowing={props.totalShowing}
-      />
     </div>
   );
 }
