@@ -881,6 +881,7 @@ function ProgressBar(props) {
 function LeagueStats(props) {
   var standings = props.standings;
   var playerNames = props.playerNames;
+  var onProgress = props.onProgress;
 
   // Phase 1: history-based data (chart, bench totals, hits)
   var [historyData, setHistoryData] = React.useState(null);
@@ -893,6 +894,18 @@ function LeagueStats(props) {
   var [progress, setProgress] = React.useState(0);
   var [progressLabel, setProgressLabel] = React.useState('');
   var [statsError, setStatsError] = React.useState(null);
+
+  // Report loading progress to parent
+  React.useEffect(function () {
+    if (onProgress) {
+      onProgress({
+        loading: phase1Loading || phase2Loading,
+        phase1Done: !phase1Loading && historyData !== null,
+        percent: progress,
+        label: progressLabel
+      });
+    }
+  }, [phase1Loading, phase2Loading, progress, progressLabel]);
 
   async function loadAllStats() {
     setPhase1Loading(true);
@@ -1458,6 +1471,7 @@ function App() {
   var [standings, setStandings] = React.useState([]);
   var [leagueName, setLeagueName] = React.useState('');
   var [playerNames, setPlayerNames] = React.useState({});
+  var [statsProgress, setStatsProgress] = React.useState({ loading: false, phase1Done: false, percent: 0, label: '' });
   var [error, setError] = React.useState(null);
   var [loading, setLoading] = React.useState(false);
   var [hasMore, setHasMore] = React.useState(false);
@@ -1571,12 +1585,19 @@ function App() {
     return function () { window.removeEventListener('popstate', onPopState); };
   }, []);
 
-  var hasData = standings.length > 0 || loading || error;
+  var isInitialLoad = loading || (standings.length > 0 && !statsProgress.phase1Done && !error);
+  var showDashboard = standings.length > 0 && statsProgress.phase1Done && !loading;
+
+  var startLoading = isInitialLoad;
+  var startProgressPercent = loading ? 0 : statsProgress.percent;
+  var startProgressLabel = loading
+    ? 'Loading standings...'
+    : (statsProgress.label ? statsProgress.label + ' ' + Math.round(statsProgress.percent) + '%' : null);
 
   return (
     <div className="app-container">
       <LandscapeOverlay />
-      {hasData ? (
+      {showDashboard ? (
         <React.Fragment>
           <header className="app-header">
             <div className="header-logo">FPL</div>
@@ -1606,27 +1627,7 @@ function App() {
                 }}>&#x1F517; Share</button>
               ) : null}
             </form>
-            {error ? (
-              <p className="error-message">{error}</p>
-            ) : loading ? (
-              <p className="loading-text">Loading standings...</p>
-            ) : (
-              <div>
-                {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
-                <LeagueStats
-                  standings={standings}
-                  playerNames={playerNames}
-                  hasMore={hasMore}
-                  onLoadMore={loadMoreManagers}
-                  loadingMore={loadingMore}
-                  totalShowing={standings.length}
-                />
-              </div>
-            )}
           </main>
-          <footer className="app-footer">
-            <p>FPL Data - Not affiliated with the Premier League</p>
-          </footer>
         </React.Fragment>
       ) : (
         <div className="start-page">
@@ -1634,6 +1635,9 @@ function App() {
             <div className="start-logo">FPL</div>
             <h1 className="start-title">FPL Data</h1>
             <p className="start-subtitle">League stats and captain analysis for Fantasy Premier League</p>
+            {error ? (
+              <p className="error-message" style={{ marginBottom: '16px' }}>{error}</p>
+            ) : null}
             <form className="start-form" onSubmit={handleSubmit}>
               <input
                 type="text"
@@ -1643,13 +1647,39 @@ function App() {
                 onChange={function (e) { setLeagueId(e.target.value); }}
                 autoFocus
               />
-              <button type="submit" className="start-button" disabled={loading} data-umami-event="fetch-standings">
-                Go
+              <button type="submit" className="start-button" disabled={startLoading} data-umami-event="fetch-standings">
+                {startLoading ? '...' : 'Go'}
               </button>
             </form>
+            {startLoading ? (
+              <div className="start-progress">
+                <ProgressBar percent={startProgressPercent} label={startProgressLabel} />
+              </div>
+            ) : null}
           </div>
         </div>
       )}
+      {standings.length > 0 ? (
+        <div style={showDashboard ? undefined : { position: 'absolute', left: '-9999px', opacity: 0 }}>
+          <main className={showDashboard ? 'app-content' : undefined}>
+            {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
+            <LeagueStats
+              standings={standings}
+              playerNames={playerNames}
+              hasMore={hasMore}
+              onLoadMore={loadMoreManagers}
+              loadingMore={loadingMore}
+              totalShowing={standings.length}
+              onProgress={setStatsProgress}
+            />
+          </main>
+          {showDashboard ? (
+            <footer className="app-footer">
+              <p>FPL Data - Not affiliated with the Premier League</p>
+            </footer>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

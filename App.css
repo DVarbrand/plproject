@@ -279,6 +279,10 @@ body {
 }
 }
 
+.start-progress {
+  margin-top: 24px;
+}
+
 /* === Loading State === */
 
 .loading-text {
