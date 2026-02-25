@@ -1571,63 +1571,85 @@ function App() {
     return function () { window.removeEventListener('popstate', onPopState); };
   }, []);
 
+  var hasData = standings.length > 0 || loading || error;
+
   return (
     <div className="app-container">
       <LandscapeOverlay />
-      <header className="app-header">
-        <div className="header-logo">FPL</div>
-        <h1>FPL Data</h1>
-        <span className="header-badge">2025/26</span>
-      </header>
-      <main className="app-content">
-        <form className="league-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            className="league-input"
-            placeholder="Enter league ID..."
-            value={leagueId}
-            onChange={function (e) { setLeagueId(e.target.value); }}
-          />
-          <button type="submit" className="league-button" disabled={loading} data-umami-event="fetch-standings">
-            {loading ? 'Loading...' : 'Fetch Standings'}
-          </button>
-          {standings.length > 0 ? (
-            <button type="button" className="league-button share-button" data-umami-event="share-link" onClick={function () {
-              navigator.clipboard.writeText(window.location.href).then(function () {
-                var btn = document.querySelector('.share-button');
-                var orig = btn.innerHTML;
-                btn.textContent = '\u2713 Copied!';
-                setTimeout(function () { btn.innerHTML = orig; }, 2000);
-              });
-            }}>&#x1F517; Share</button>
-          ) : null}
-        </form>
-        {error ? (
-          <p className="error-message">{error}</p>
-        ) : loading ? (
-          <p className="loading-text">Loading standings...</p>
-        ) : standings.length > 0 ? (
-          <div>
-            {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
-            <LeagueStats
-              standings={standings}
-              playerNames={playerNames}
-              hasMore={hasMore}
-              onLoadMore={loadMoreManagers}
-              loadingMore={loadingMore}
-              totalShowing={standings.length}
-            />
+      {hasData ? (
+        <React.Fragment>
+          <header className="app-header">
+            <div className="header-logo">FPL</div>
+            <h1>FPL Data</h1>
+            <span className="header-badge">2025/26</span>
+          </header>
+          <main className="app-content">
+            <form className="league-form" onSubmit={handleSubmit}>
+              <input
+                type="text"
+                className="league-input"
+                placeholder="Enter league ID..."
+                value={leagueId}
+                onChange={function (e) { setLeagueId(e.target.value); }}
+              />
+              <button type="submit" className="league-button" disabled={loading} data-umami-event="fetch-standings">
+                {loading ? 'Loading...' : 'Fetch Standings'}
+              </button>
+              {standings.length > 0 ? (
+                <button type="button" className="league-button share-button" data-umami-event="share-link" onClick={function () {
+                  navigator.clipboard.writeText(window.location.href).then(function () {
+                    var btn = document.querySelector('.share-button');
+                    var orig = btn.innerHTML;
+                    btn.textContent = '\u2713 Copied!';
+                    setTimeout(function () { btn.innerHTML = orig; }, 2000);
+                  });
+                }}>&#x1F517; Share</button>
+              ) : null}
+            </form>
+            {error ? (
+              <p className="error-message">{error}</p>
+            ) : loading ? (
+              <p className="loading-text">Loading standings...</p>
+            ) : (
+              <div>
+                {leagueName ? <h2 className="league-name">{leagueName}</h2> : null}
+                <LeagueStats
+                  standings={standings}
+                  playerNames={playerNames}
+                  hasMore={hasMore}
+                  onLoadMore={loadMoreManagers}
+                  loadingMore={loadingMore}
+                  totalShowing={standings.length}
+                />
+              </div>
+            )}
+          </main>
+          <footer className="app-footer">
+            <p>FPL Data - Not affiliated with the Premier League</p>
+          </footer>
+        </React.Fragment>
+      ) : (
+        <div className="start-page">
+          <div className="start-hero">
+            <div className="start-logo">FPL</div>
+            <h1 className="start-title">FPL Data</h1>
+            <p className="start-subtitle">League stats and captain analysis for Fantasy Premier League</p>
+            <form className="start-form" onSubmit={handleSubmit}>
+              <input
+                type="text"
+                className="start-input"
+                placeholder="Enter league ID"
+                value={leagueId}
+                onChange={function (e) { setLeagueId(e.target.value); }}
+                autoFocus
+              />
+              <button type="submit" className="start-button" disabled={loading} data-umami-event="fetch-standings">
+                Go
+              </button>
+            </form>
           </div>
-        ) : (
-          <div className="empty-state">
-            <h2>Enter a league ID to get started</h2>
-            <p>Find your league ID from the FPL website under Leagues & Cups</p>
-          </div>
-        )}
-      </main>
-      <footer className="app-footer">
-        <p>FPL Data - Not affiliated with the Premier League</p>
-      </footer>
+        </div>
+      )}
     </div>
   );
 }

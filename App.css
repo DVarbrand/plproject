@@ -177,26 +177,106 @@ body {
   margin: 1.5rem 0 1rem;
 }
 
-/* === Empty State === */
+/* === Start Page === */
 
-.empty-state {
-  margin-top: 3rem;
-  padding: 3rem 2rem;
-  border: 2px dashed var(--color-slate-200);
-  border-radius: var(--radius-xl);
-  color: var(--color-slate-400);
+.start-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.start-hero {
   text-align: center;
+  max-width: 420px;
+  width: 100%;
 }
 
-.empty-state h2 {
-  color: var(--color-slate-700);
-  font-size: 1.2rem;
-  margin: 0 0 0.5rem;
+.start-logo {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--color-blue-500), var(--color-blue-700));
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-white);
+  font-weight: 800;
+  font-size: 20px;
+  margin-bottom: 20px;
 }
 
-.empty-state p {
-  margin: 0;
-  font-size: 0.9rem;
+.start-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--color-slate-900);
+  margin: 0 0 8px;
+  letter-spacing: -0.5px;
+}
+
+.start-subtitle {
+  font-size: 0.95rem;
+  color: var(--color-slate-400);
+  margin: 0 0 32px;
+  line-height: 1.5;
+}
+
+.start-form {
+  display: flex;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.start-input {
+  flex: 1;
+  padding: 14px 18px;
+  font-size: 1rem;
+  font-family: var(--font-body);
+  border: 2px solid var(--color-slate-200);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  background: var(--color-white);
+  color: var(--color-slate-800);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.start-input::placeholder {
+  color: var(--color-slate-300);
+}
+
+.start-input:focus {
+  border-color: var(--color-blue-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.start-button {
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--color-blue-500), var(--color-blue-700));
+  color: var(--color-white);
+  border: none;
+  border-radius: 0 12px 12px 0;
+  cursor: pointer;
+  transition: opacity var(--transition), transform var(--transition);
+  letter-spacing: 0.3px;
+}
+
+.start-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.start-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
 }
 
 /* === Loading State === */
